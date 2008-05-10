@@ -106,6 +106,7 @@ typedef int64_t  Elf64_Sxword;
 
 #define EM_H8_300H      47      /* Hitachi H8/300H */
 #define EM_H8S          48      /* Hitachi H8S     */
+#define EM_BLACKFIN	106	/* Analog Devices Blackfin */
 #define EM_LATTICEMICO32 138    /* LatticeMico32 */
 
 #define EM_OPENRISC     92        /* OpenCores OpenRISC */
@@ -967,6 +968,11 @@ typedef struct {
 /* Legal values for e_flags field of Elf64_Ehdr.  */
 
 #define EF_ALPHA_32BIT		1	/* All addresses are below 2GB */
+
+/* Blackfin specific definitions.  */
+
+#define EF_BFIN_PIC		0x00000001	/* -fpic */
+#define EF_BFIN_FDPIC		0x00000002      /* -mfdpic */
 
 /* HPPA specific definitions.  */
 
