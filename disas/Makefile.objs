@@ -1,5 +1,6 @@
 common-obj-$(CONFIG_ALPHA_DIS) += alpha.o
 common-obj-$(CONFIG_ARM_DIS) += arm.o
+common-obj-$(CONFIG_BFIN_DIS) += bfin.o
 common-obj-$(CONFIG_CRIS_DIS) += cris.o
 common-obj-$(CONFIG_HPPA_DIS) += hppa.o
 common-obj-$(CONFIG_I386_DIS) += i386.o
