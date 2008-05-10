@@ -5041,6 +5041,10 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
       echo "CONFIG_ARM_A64_DIS=y"  >> config-all-disas.mak
     fi
   ;;
+  bfin)
+    echo "CONFIG_BFIN_DIS=y"  >> $config_target_mak
+    echo "CONFIG_BFIN_DIS=y"  >> config-all-disas.mak
+  ;;
   cris)
     echo "CONFIG_CRIS_DIS=y"  >> $config_target_mak
     echo "CONFIG_CRIS_DIS=y"  >> config-all-disas.mak
