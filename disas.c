@@ -302,6 +302,9 @@ void disas(FILE *out, void *code, unsigned long size)
     s.info.mach = bfd_mach_sparc_v9b;
 #elif defined(__arm__)
     print_insn = print_insn_arm;
+#elif defined(__bfin__)
+    s.info.mach = bfd_mach_bfin;
+    print_insn = print_insn_bfin;
 #elif defined(__MIPSEB__)
     print_insn = print_insn_big_mips;
 #elif defined(__MIPSEL__)

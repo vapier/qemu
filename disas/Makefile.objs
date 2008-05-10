@@ -8,6 +8,7 @@ libvixldir = $(SRC_PATH)/disas/libvixl
 # some signed-unsigned equality comparisons in libvixl which later gcc
 # versions do not.
 arm-a64.o-cflags := -I$(libvixldir) -Wno-sign-compare
+common-obj-$(CONFIG_BFIN_DIS) += bfin.o
 common-obj-$(CONFIG_CRIS_DIS) += cris.o
 common-obj-$(CONFIG_I386_DIS) += i386.o
 common-obj-$(CONFIG_IA64_DIS) += ia64.o
