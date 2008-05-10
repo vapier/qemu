@@ -854,6 +854,7 @@ disassemblers = {
   'alpha' : ['CONFIG_ALPHA_DIS'],
   'arm' : ['CONFIG_ARM_DIS'],
   'avr' : ['CONFIG_AVR_DIS'],
+  'bfin' : ['CONFIG_BFIN_DIS'],
   'cris' : ['CONFIG_CRIS_DIS'],
   'hppa' : ['CONFIG_HPPA_DIS'],
   'i386' : ['CONFIG_I386_DIS'],

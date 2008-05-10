@@ -230,6 +230,8 @@ enum bfd_architecture
 #define bfd_mach_avrxmega5  105
 #define bfd_mach_avrxmega6  106
 #define bfd_mach_avrxmega7  107
+  bfd_arch_bfin,       /* ADI Blackfin */
+#define bfd_mach_bfin          1
   bfd_arch_cris,       /* Axis CRIS */
 #define bfd_mach_cris_v0_v10   255
 #define bfd_mach_cris_v32      32
@@ -426,6 +428,7 @@ int print_insn_arm_a64          (bfd_vma, disassemble_info*);
 int print_insn_alpha            (bfd_vma, disassemble_info*);
 disassembler_ftype arc_get_disassembler (int, int);
 int print_insn_arm              (bfd_vma, disassemble_info*);
+int print_insn_bfin             (bfd_vma, disassemble_info*);
 int print_insn_sparc            (bfd_vma, disassemble_info*);
 int print_insn_big_a29k         (bfd_vma, disassemble_info*);
 int print_insn_little_a29k      (bfd_vma, disassemble_info*);

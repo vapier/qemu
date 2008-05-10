@@ -195,6 +195,9 @@ static void initialize_debug_host(CPUDebug *s)
     /* TCG only generates code for arm mode.  */
     s->info.print_insn = print_insn_arm;
     s->info.cap_arch = CS_ARCH_ARM;
+#elif defined(__bfin__)
+    s->info.mach = bfd_mach_bfin;
+    s->info.print_insn = print_insn_bfin;
 #elif defined(__MIPSEB__)
     s->info.print_insn = print_insn_big_mips;
 #elif defined(__MIPSEL__)
