@@ -98,4 +98,8 @@ run-%: %
 .PHONY: run
 run: $(RUN_TESTS)
 
+# testsuite for the Blackfin port.
+test-bfin:
+	$(MAKE) -C bfin check
+
 # There is no clean target, the calling make just rm's the tests build dir
