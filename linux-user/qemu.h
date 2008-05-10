@@ -25,6 +25,10 @@
  */
 #define SIGSET_T_SIZE (_NSIG / 8)
 
+#ifdef TARGET_BFIN
+#define CONFIG_USE_FDPIC
+#endif
+
 /* This struct is used to hold certain information about the image.
  * Basically, it replicates in user space what would be certain
  * task_struct fields in the kernel
