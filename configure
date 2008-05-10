@@ -6089,6 +6089,10 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
       disas_config "ARM_A64"
     fi
   ;;
+  bfin)
+    echo "CONFIG_BFIN_DIS=y"  >> $config_target_mak
+    echo "CONFIG_BFIN_DIS=y"  >> config-all-disas.mak
+  ;;
   cris)
     disas_config "CRIS"
   ;;
