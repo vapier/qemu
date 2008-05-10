@@ -1213,6 +1213,48 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUM68KState *e
 
 #endif
 
+#ifdef TARGET_BFIN
+
+#define ELF_START_MMAP 0x00000000
+
+#define elf_check_arch(x) ( (x) == EM_BLACKFIN )
+#define elf_is_fdpic(e)   ( (e)->e_flags & EF_BFIN_FDPIC )
+
+#define ELF_CLASS	ELFCLASS32
+#define ELF_DATA	ELFDATA2LSB
+#define ELF_ARCH	EM_BLACKFIN
+
+static inline void init_thread(struct target_pt_regs *regs, struct image_info *infop)
+{
+    if (infop->personality == PER_LINUX_FDPIC) {
+        if (infop->other_info) {
+            /* dynamic */
+            regs->p0 = tswapl(infop->loadmap_addr);
+            regs->p1 = tswapl(infop->other_info->loadmap_addr);
+            regs->p2 = tswapl(infop->other_info->pt_dynamic_addr);
+        } else {
+            /* static */
+            regs->p0 = tswapl(infop->loadmap_addr);
+            regs->p1 = 0;
+            regs->p2 = tswapl(infop->pt_dynamic_addr);
+        }
+        regs->r7 = 0;
+    } else if (infop->start_code == 0) {
+        /* Must be bare metal ELF ... */
+        infop->personality = PER_MASK;
+    }
+    regs->pc = tswapl(infop->entry);
+    regs->usp = tswapl(infop->start_stack);
+}
+
+#define ELF_EXEC_PAGESIZE	4096
+
+/* See linux kernel: arch/blackfin/include/asm/elf.h.  */
+#define ELF_NREG 40
+typedef target_elf_greg_t target_elf_gregset_t[ELF_NREG];
+
+#endif
+
 #ifdef TARGET_ALPHA
 
 #define ELF_START_MMAP (0x30000000000ULL)
@@ -2051,6 +2093,11 @@ static void load_elf_image(const char *image_name, int image_fd,
            address does not conflict with MMAP_MIN_ADDR or the
            QEMU application itself.  */
         probe_guest_base(image_name, loaddr, hiaddr);
+#ifdef TARGET_BFIN
+        /* Make space for the fixed code region */
+        if (elf_is_fdpic(ehdr) && load_addr < 0x1000)
+            load_addr += 0x1000;
+#endif
     }
     load_bias = load_addr - loaddr;
 
