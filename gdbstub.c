@@ -1775,6 +1775,107 @@ static int cpu_gdb_write_register(CPUXtensaState *env, uint8_t *mem_buf, int n)
 
     return 4;
 }
+#elif defined (TARGET_BFIN)
+
+#include "target-bfin/bfin-tdep.h"
+
+#define NUM_CORE_REGS BFIN_NUM_REGS
+
+static int cpu_gdb_read_register(CPUArchState *env, uint8_t *mem_buf, int n)
+{
+    switch (n) {
+        case BFIN_R0_REGNUM ... BFIN_R7_REGNUM:
+            GET_REGL(env->dreg[n - BFIN_R0_REGNUM]); break;
+        case BFIN_P0_REGNUM ... BFIN_FP_REGNUM:
+            GET_REGL(env->preg[n - BFIN_P0_REGNUM]); break;
+        case BFIN_I0_REGNUM ... BFIN_I3_REGNUM:
+            GET_REGL(env->ireg[n - BFIN_I0_REGNUM]); break;
+        case BFIN_M0_REGNUM ... BFIN_M3_REGNUM:
+            GET_REGL(env->mreg[n - BFIN_M0_REGNUM]); break;
+        case BFIN_B0_REGNUM ... BFIN_B3_REGNUM:
+            GET_REGL(env->breg[n - BFIN_B0_REGNUM]); break;
+        case BFIN_L0_REGNUM ... BFIN_L3_REGNUM:
+            GET_REGL(env->lreg[n - BFIN_L0_REGNUM]); break;
+        case BFIN_A0_DOT_X_REGNUM: GET_REGL((env->areg[0] >> 32) & 0xff); break;
+        case BFIN_A0_DOT_W_REGNUM: GET_REGL(env->areg[0]); break;
+        case BFIN_A1_DOT_X_REGNUM: GET_REGL((env->areg[1] >> 32) & 0xff); break;
+        case BFIN_A1_DOT_W_REGNUM: GET_REGL(env->areg[1]); break;
+        case BFIN_ASTAT_REGNUM: GET_REGL(bfin_astat_read(env)); break;
+        case BFIN_RETS_REGNUM: GET_REGL(env->rets); break;
+        case BFIN_LC0_REGNUM: GET_REGL(env->lcreg[0]); break;
+        case BFIN_LT0_REGNUM: GET_REGL(env->ltreg[0]); break;
+        case BFIN_LB0_REGNUM: GET_REGL(env->lbreg[0]); break;
+        case BFIN_LC1_REGNUM: GET_REGL(env->lcreg[1]); break;
+        case BFIN_LT1_REGNUM: GET_REGL(env->ltreg[1]); break;
+        case BFIN_LB1_REGNUM: GET_REGL(env->lbreg[1]); break;
+        case BFIN_CYCLES_REGNUM ... BFIN_CYCLES2_REGNUM:
+            GET_REGL(env->cycles[n - BFIN_CYCLES_REGNUM]); break;
+        case BFIN_USP_REGNUM: GET_REGL(env->uspreg); break;
+        case BFIN_SEQSTAT_REGNUM: GET_REGL(env->seqstat); break;
+        case BFIN_SYSCFG_REGNUM: GET_REGL(env->syscfg); break;
+        case BFIN_RETI_REGNUM: GET_REGL(env->reti); break;
+        case BFIN_RETX_REGNUM: GET_REGL(env->retx); break;
+        case BFIN_RETN_REGNUM: GET_REGL(env->retn); break;
+        case BFIN_RETE_REGNUM: GET_REGL(env->rete); break;
+        case BFIN_PC_REGNUM: GET_REGL(env->pc); break;
+    }
+
+    return 0;
+}
+
+static int cpu_gdb_write_register(CPUArchState *env, uint8_t *mem_buf, int n)
+{
+    target_ulong tmpl;
+    int r = 4;
+    tmpl = ldtul_p(mem_buf);
+
+    switch (n) {
+        case BFIN_R0_REGNUM ... BFIN_R7_REGNUM:
+            env->dreg[n - BFIN_R0_REGNUM] = tmpl; break;
+        case BFIN_P0_REGNUM ... BFIN_FP_REGNUM:
+            env->preg[n - BFIN_P0_REGNUM] = tmpl; break;
+        case BFIN_I0_REGNUM ... BFIN_I3_REGNUM:
+            env->ireg[n - BFIN_I0_REGNUM] = tmpl; break;
+        case BFIN_M0_REGNUM ... BFIN_M3_REGNUM:
+            env->mreg[n - BFIN_M0_REGNUM] = tmpl; break;
+        case BFIN_B0_REGNUM ... BFIN_B3_REGNUM:
+            env->breg[n - BFIN_B0_REGNUM] = tmpl; break;
+        case BFIN_L0_REGNUM ... BFIN_L3_REGNUM:
+            env->lreg[n - BFIN_L0_REGNUM] = tmpl; break;
+        case BFIN_A0_DOT_X_REGNUM:
+            env->areg[0] = (env->areg[0] & 0xffffffff) | ((uint64_t)tmpl << 32);
+            break;
+        case BFIN_A0_DOT_W_REGNUM:
+            env->areg[0] = (env->areg[0] & ~0xffffffff) | tmpl;
+            break;
+        case BFIN_A1_DOT_X_REGNUM:
+            env->areg[1] = (env->areg[1] & 0xffffffff) | ((uint64_t)tmpl << 32);
+            break;
+        case BFIN_A1_DOT_W_REGNUM:
+            env->areg[1] = (env->areg[1] & ~0xffffffff) | tmpl;
+            break;
+        case BFIN_ASTAT_REGNUM: bfin_astat_write(env, tmpl); break;
+        case BFIN_RETS_REGNUM: env->rets = tmpl; break;
+        case BFIN_LC0_REGNUM: env->lcreg[0] = tmpl; break;
+        case BFIN_LT0_REGNUM: env->ltreg[0] = tmpl; break;
+        case BFIN_LB0_REGNUM: env->lbreg[0] = tmpl; break;
+        case BFIN_LC1_REGNUM: env->lcreg[1] = tmpl; break;
+        case BFIN_LT1_REGNUM: env->ltreg[1] = tmpl; break;
+        case BFIN_LB1_REGNUM: env->lbreg[1] = tmpl; break;
+        case BFIN_CYCLES_REGNUM ... BFIN_CYCLES2_REGNUM:
+            env->cycles[n - BFIN_CYCLES_REGNUM] = tmpl; break;
+        case BFIN_USP_REGNUM: env->uspreg = tmpl; break;
+        case BFIN_SEQSTAT_REGNUM: env->seqstat = tmpl; break;
+        case BFIN_SYSCFG_REGNUM: env->syscfg = tmpl; break;
+        case BFIN_RETI_REGNUM: env->reti = tmpl; break;
+        case BFIN_RETX_REGNUM: env->retx = tmpl; break;
+        case BFIN_RETN_REGNUM: env->retn = tmpl; break;
+        case BFIN_RETE_REGNUM: env->rete = tmpl; break;
+        case BFIN_PC_REGNUM: env->pc = tmpl; break;
+    }
+
+    return r;
+}
 #else
 
 #define NUM_CORE_REGS 0
@@ -2060,6 +2161,8 @@ static void gdb_set_cpu_pc(GDBState *s, target_ulong pc)
 #elif defined (TARGET_LM32)
     s->c_cpu->pc = pc;
 #elif defined(TARGET_XTENSA)
+    s->c_cpu->pc = pc;
+#elif defined (TARGET_BFIN)
     s->c_cpu->pc = pc;
 #endif
 }

@@ -1014,6 +1014,7 @@ x86_64-linux-user \
 alpha-linux-user \
 arm-linux-user \
 armeb-linux-user \
+bfin-linux-user \
 cris-linux-user \
 m68k-linux-user \
 microblaze-linux-user \
@@ -4204,6 +4205,10 @@ case "$target_arch2" in
     bflt="yes"
     target_nptl="yes"
     gdb_xml_files="arm-core.xml arm-vfp.xml arm-vfp3.xml arm-neon.xml"
+  ;;
+  bfin)
+    bflt="yes"
+    target_phys_bits=32
   ;;
   cris)
     target_nptl="yes"
