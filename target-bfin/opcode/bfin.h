@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this file; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
+#ifndef OPCODE_BFIN_H
+#define OPCODE_BFIN_H
+
 /* Common to all DSP32 instructions.  */
 #define BIT_MULTI_INS 0x0800
 
@@ -25,6 +28,29 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, US
 
 
 /* DSP instructions (32 bit) */
+
+/* mmod field.  */
+#define M_S2RND 1
+#define M_T     2
+#define M_W32   3
+#define M_FU    4
+#define M_TFU   6
+#define M_IS    8
+#define M_ISS2  9
+#define M_IH    11
+#define M_IU    12
+
+static inline int is_macmod_pmove(int x)
+{
+  return (x == 0) || (x == M_IS) || (x == M_FU) || (x == M_S2RND)
+         || (x == M_ISS2) || (x == M_IU);
+}
+
+static inline int is_macmod_hmove(int x)
+{
+  return (x == 0) || (x == M_IS) || (x == M_FU) || (x == M_IU) || (x == M_T)
+         || (x == M_TFU) || (x == M_S2RND) || (x == M_ISS2) || (x == M_IH);
+}
 
 /*   dsp32mac
 +----+----+---+---|---+----+----+---|---+---+---+---|---+---+---+---+
@@ -1724,3 +1750,5 @@ typedef struct
   DagMODik_op_bits,	DagMODik_op_mask,	\
   DagMODik_code_bits,	DagMODik_code_mask	\
 };
+
+#endif

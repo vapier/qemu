@@ -298,7 +298,7 @@ else
 fi
 
 case "$cpu" in
-  alpha|cris|ia64|lm32|m68k|microblaze|ppc|ppc64|sparc64|unicore32)
+  alpha|bfin|cris|ia64|lm32|m68k|microblaze|ppc|ppc64|sparc64|unicore32)
     cpu="$cpu"
   ;;
   i386|i486|i586|i686|i86pc|BePC)
@@ -2871,7 +2871,7 @@ echo "docdir=$docdir" >> $config_host_mak
 echo "confdir=$confdir" >> $config_host_mak
 
 case "$cpu" in
-  i386|x86_64|alpha|cris|hppa|ia64|lm32|m68k|microblaze|mips|mips64|ppc|ppc64|s390|s390x|sparc|sparc64|unicore32)
+  i386|x86_64|alpha|bfin|cris|hppa|ia64|lm32|m68k|microblaze|mips|mips64|ppc|ppc64|s390|s390x|sparc|sparc64|unicore32)
     ARCH=$cpu
   ;;
   armv4b|armv4l)
@@ -3382,6 +3382,10 @@ case "$target_arch2" in
     gdb_xml_files="arm-core.xml arm-vfp.xml arm-vfp3.xml arm-neon.xml"
     target_phys_bits=32
     target_llong_alignment=4
+  ;;
+  bfin)
+    bflt="yes"
+    target_phys_bits=32
   ;;
   cris)
     target_nptl="yes"
