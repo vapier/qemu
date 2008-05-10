@@ -66,6 +66,11 @@ M: Peter Maydell <peter.maydell@linaro.org>
 S: Maintained
 F: target-arm/
 
+Blackfin
+M: Mike Frysinger <vapier@gentoo.org>
+S: Maintained
+F: target-bfin/
+
 CRIS
 M: Edgar E. Iglesias <edgar.iglesias@gmail.com>
 S: Maintained

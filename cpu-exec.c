@@ -223,6 +223,7 @@ int cpu_exec(CPUArchState *env)
 #elif defined(TARGET_MICROBLAZE)
 #elif defined(TARGET_MIPS)
 #elif defined(TARGET_SH4)
+#elif defined(TARGET_BFIN)
 #elif defined(TARGET_CRIS)
 #elif defined(TARGET_S390X)
 #elif defined(TARGET_XTENSA)
@@ -276,7 +277,8 @@ int cpu_exec(CPUArchState *env)
                     }
 #if defined(TARGET_ARM) || defined(TARGET_SPARC) || defined(TARGET_MIPS) || \
     defined(TARGET_PPC) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) || \
-    defined(TARGET_MICROBLAZE) || defined(TARGET_LM32) || defined(TARGET_UNICORE32)
+    defined(TARGET_MICROBLAZE) || defined(TARGET_LM32) || defined(TARGET_UNICORE32) || \
+    defined(TARGET_BFIN)
                     if (interrupt_request & CPU_INTERRUPT_HALT) {
                         env->interrupt_request &= ~CPU_INTERRUPT_HALT;
                         env->halted = 1;
@@ -621,6 +623,7 @@ int cpu_exec(CPUArchState *env)
 #elif defined(TARGET_MICROBLAZE)
 #elif defined(TARGET_MIPS)
 #elif defined(TARGET_SH4)
+#elif defined(TARGET_BFIN)
 #elif defined(TARGET_ALPHA)
 #elif defined(TARGET_CRIS)
 #elif defined(TARGET_S390X)
