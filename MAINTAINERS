@@ -176,6 +176,11 @@ F: gdb-xml/avr-cpu.xml
 F: target/avr/
 F: tests/acceptance/machine_avr6.py
 
+Blackfin
+M: Mike Frysinger <vapier@gentoo.org>
+S: Maintained
+F: target/bfin/
+
 CRIS TCG CPUs
 M: Edgar E. Iglesias <edgar.iglesias@gmail.com>
 S: Maintained
