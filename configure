@@ -863,6 +863,7 @@ x86_64-linux-user \
 alpha-linux-user \
 arm-linux-user \
 armeb-linux-user \
+bfin-linux-user \
 cris-linux-user \
 m68k-linux-user \
 microblaze-linux-user \
