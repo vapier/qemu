@@ -7148,6 +7148,9 @@ case "$target_name" in
     target_compiler=$cross_cc_aarch64
     eval "target_compiler_cflags=\$cross_cc_cflags_${target_name}"
   ;;
+  bfin)
+    bflt="yes"
+  ;;
   cris)
     target_compiler=$cross_cc_cris
   ;;
