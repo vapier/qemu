@@ -280,7 +280,7 @@ else
 fi
 
 case "$cpu" in
-  alpha|cris|ia64|m68k|microblaze|ppc|ppc64|sparc64)
+  alpha|bfin|cris|ia64|m68k|microblaze|ppc|ppc64|sparc64)
     cpu="$cpu"
   ;;
   i386|i486|i586|i686|i86pc|BePC)
@@ -1004,6 +1004,7 @@ x86_64-linux-user \
 alpha-linux-user \
 arm-linux-user \
 armeb-linux-user \
+bfin-linux-user \
 cris-linux-user \
 m68k-linux-user \
 microblaze-linux-user \
@@ -2478,7 +2479,7 @@ echo "docdir=$docdir" >> $config_host_mak
 echo "confdir=$confdir" >> $config_host_mak
 
 case "$cpu" in
-  i386|x86_64|alpha|cris|hppa|ia64|m68k|microblaze|mips|mips64|ppc|ppc64|s390|s390x|sparc|sparc64)
+  i386|x86_64|alpha|bfin|cris|hppa|ia64|m68k|microblaze|mips|mips64|ppc|ppc64|s390|s390x|sparc|sparc64)
     ARCH=$cpu
   ;;
   armv4b|armv4l)
@@ -2909,6 +2910,10 @@ case "$target_arch2" in
     gdb_xml_files="arm-core.xml arm-vfp.xml arm-vfp3.xml arm-neon.xml"
     target_phys_bits=32
   ;;
+  bfin)
+    bflt="yes"
+    target_phys_bits=32
+  ;;
   cris)
     target_nptl="yes"
     target_phys_bits=32
@@ -3116,6 +3121,10 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
   arm)
     echo "CONFIG_ARM_DIS=y"  >> $config_target_mak
     echo "CONFIG_ARM_DIS=y"  >> $libdis_config_mak
+  ;;
+  bfin)
+    echo "CONFIG_BFIN_DIS=y"  >> $config_target_mak
+    echo "CONFIG_BFIN_DIS=y"  >> $libdis_config_mak
   ;;
   cris)
     echo "CONFIG_CRIS_DIS=y"  >> $config_target_mak

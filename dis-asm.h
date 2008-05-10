@@ -210,6 +210,8 @@ enum bfd_architecture
 #define bfd_mach_m32r          0  /* backwards compatibility */
   bfd_arch_mn10200,    /* Matsushita MN10200 */
   bfd_arch_mn10300,    /* Matsushita MN10300 */
+  bfd_arch_bfin,       /* ADI Blackfin */
+#define bfd_mach_bfin          1
   bfd_arch_cris,       /* Axis CRIS */
 #define bfd_mach_cris_v0_v10   255
 #define bfd_mach_cris_v32      32
@@ -396,6 +398,7 @@ extern int print_insn_v850		(bfd_vma, disassemble_info*);
 extern int print_insn_tic30		(bfd_vma, disassemble_info*);
 extern int print_insn_ppc		(bfd_vma, disassemble_info*);
 extern int print_insn_s390		(bfd_vma, disassemble_info*);
+extern int print_insn_bfin		(bfd_vma, disassemble_info *);
 extern int print_insn_crisv32           (bfd_vma, disassemble_info*);
 extern int print_insn_crisv10           (bfd_vma, disassemble_info*);
 extern int print_insn_microblaze        (bfd_vma, disassemble_info*);

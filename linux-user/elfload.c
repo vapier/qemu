@@ -772,6 +772,44 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUState *env)
 
 #endif
 
+#ifdef TARGET_BFIN
+
+#define ELF_START_MMAP 0x00000000
+
+#define elf_check_arch(x) ( (x) == EM_BLACKFIN )
+#define elf_is_fdpic(e)   ( (e)->e_flags & EF_BFIN_FDPIC )
+
+#define ELF_CLASS	ELFCLASS32
+#define ELF_DATA	ELFDATA2LSB
+#define ELF_ARCH	EM_BLACKFIN
+
+static inline void init_thread(struct target_pt_regs *regs, struct image_info *infop)
+{
+	if (infop->personality == PER_LINUX_FDPIC) {
+		if (infop->other_info) {
+			/* dynamic */
+			regs->p0 = tswapl(infop->other_info->loadmap_addr);
+			regs->p1 = tswapl(infop->loadmap_addr);
+		} else {
+			/* static */
+			regs->p0 = tswapl(infop->loadmap_addr);
+			regs->p1 = 0;
+		}
+		regs->p2 = tswapl(infop->pt_dynamic_addr);
+		regs->r7 = 0;
+	}
+	regs->pc = tswapl(infop->entry);
+	regs->usp = tswapl(infop->start_stack);
+}
+
+#define ELF_EXEC_PAGESIZE	4096
+
+/* See linux kernel: arch/blackfin/include/asm/elf.h.  */
+#define ELF_NREG 40
+typedef target_elf_greg_t target_elf_gregset_t[ELF_NREG];
+
+#endif
+
 #ifdef TARGET_ALPHA
 
 #define ELF_START_MMAP (0x30000000000ULL)

@@ -1,0 +1,3 @@
+CONFIG_NEED_MMU mmu.c
+
+CEC behavior in user-emulation (SP vs USP)

@@ -2380,6 +2380,75 @@ void cpu_loop(CPUM68KState *env)
 }
 #endif /* TARGET_M68K */
 
+#ifdef TARGET_BFIN
+
+void cpu_loop(CPUState *env)
+{
+    int trapnr;
+    target_siginfo_t info;
+
+    for (;;) {
+        trapnr = cpu_exec(env);
+
+        switch (trapnr) {
+        case EXCP_SYSCALL:
+            env->pc += 2;
+            env->dreg[0] = do_syscall(env,
+                                      env->preg[0],
+                                      env->dreg[0],
+                                      env->dreg[1],
+                                      env->dreg[2],
+                                      env->dreg[3],
+                                      env->dreg[4],
+                                      env->dreg[5]);
+            break;
+        case EXCP_INTERRUPT:
+            /* just indicate that signals should be handled asap */
+            break;
+        case EXCP_DEBUG:
+            {
+                int sig;
+
+                sig = gdb_handlesig(env, TARGET_SIGTRAP);
+                if (sig)
+                  {
+                    info.si_signo = sig;
+                    info.si_errno = 0;
+                    info.si_code = TARGET_TRAP_BRKPT;
+                    queue_signal(env, info.si_signo, &info);
+                  }
+            }
+            break;
+        case EXCP_HLT:
+            do_syscall(env, TARGET_NR_exit, 0, 0, 0, 0, 0, 0);
+            break;
+        case EXCP_ABORT:
+            do_syscall(env, TARGET_NR_exit, 1, 0, 0, 0, 0, 0);
+            break;
+        case EXCP_DBGA:
+            fprintf(stderr, "qemu: DBGA failed\n");
+            cpu_dump_state(env, stderr, fprintf, 0);
+            abort();
+        case EXCP_UNDEF_INST:
+            fprintf(stderr, "qemu: unhandled insn @ %#x\n", env->pc);
+            log_target_disas(env->pc, 8, 0);
+            exit(1);
+        case EXCP_DCPLB_VIOLATE:
+            fprintf(stderr, "qemu: memory violation @ %#x\n", env->pc);
+            log_target_disas(env->pc, 8, 0);
+            exit(1);
+        default:
+            fprintf(stderr, "qemu: unhandled CPU exception 0x%x - aborting\n",
+                    trapnr);
+            cpu_dump_state(env, stderr, fprintf, 0);
+            abort();
+        }
+        process_pending_signals(env);
+    }
+}
+
+#endif
+
 #ifdef TARGET_ALPHA
 static void do_store_exclusive(CPUAlphaState *env, int reg, int quad)
 {
@@ -3322,6 +3391,28 @@ int main(int argc, char **argv, char **envp)
         for(i = 0; i < 16; i++) {
             env->gregs[i] = regs->regs[i];
         }
+        env->pc = regs->pc;
+    }
+#elif defined(TARGET_BFIN)
+    {
+#warning show restore all the regs i think
+        env->dreg[0] = regs->r0;
+        env->dreg[1] = regs->r1;
+        env->dreg[2] = regs->r2;
+        env->dreg[3] = regs->r3;
+        env->dreg[4] = regs->r4;
+        env->dreg[5] = regs->r5;
+        env->dreg[6] = regs->r6;
+        env->dreg[7] = regs->r7;
+        env->preg[0] = regs->p0;
+        env->preg[1] = regs->p1;
+        env->preg[2] = regs->p2;
+        env->preg[3] = regs->p3;
+        env->preg[4] = regs->p4;
+        env->preg[5] = regs->p5;
+        env->spreg = regs->usp;
+        env->fpreg = regs->fp;
+        env->uspreg = regs->usp;
         env->pc = regs->pc;
     }
 #elif defined(TARGET_ALPHA)

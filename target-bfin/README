@@ -1,0 +1,22 @@
+------------------
+Blackfin QEMU port
+------------------
+
+There are some things we don't bother handling in the port for speed reasons.
+If you want an accurate (but not as fast) simulator, then use the GNU sim as
+found in the GNU toolchain (part of gdb).
+
+Things we do not handle by design:
+
+	- invalid parallel instruction combinations
+		- no toolchain will output these
+		- things like jumps
+
+	- transactional parallel instructions
+		- on the hardware, if a load/store causes an exception, the other
+		  insns do not change register states either.  in qemu, they do,
+		  but since those exceptions will kill the program anyways, who
+		  cares.  no intermediate store buffers!
+
+	- unaligned memory access exceptions
+		- qemu itself doesn't support this for targets

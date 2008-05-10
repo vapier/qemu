@@ -55,7 +55,7 @@
 #endif
 
 #if defined(TARGET_I386) || defined(TARGET_ARM) || defined(TARGET_SH4) \
-    || defined(TARGET_M68K) || defined(TARGET_CRIS)
+    || defined(TARGET_M68K) || defined(TARGET_CRIS) || defined(TARGET_BFIN)
 
 #define TARGET_IOC_SIZEBITS	14
 #define TARGET_IOC_DIRBITS	2
@@ -315,7 +315,7 @@ struct target_sigaction;
 int do_sigaction(int sig, const struct target_sigaction *act,
                  struct target_sigaction *oact);
 
-#if defined(TARGET_I386) || defined(TARGET_ARM) || defined(TARGET_SPARC) || defined(TARGET_PPC) || defined(TARGET_MIPS) || defined (TARGET_SH4) || defined(TARGET_M68K) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) || defined(TARGET_MICROBLAZE)
+#if defined(TARGET_I386) || defined(TARGET_ARM) || defined(TARGET_SPARC) || defined(TARGET_PPC) || defined(TARGET_MIPS) || defined (TARGET_SH4) || defined(TARGET_M68K) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) || defined(TARGET_MICROBLAZE) || defined(TARGET_BFIN)
 
 #if defined(TARGET_SPARC)
 #define TARGET_SA_NOCLDSTOP    8u
@@ -1549,6 +1549,67 @@ struct target_stat64 {
 	abi_ulong	st_pad2;
 
 	int64_t  	st_blocks;
+};
+
+#elif defined(TARGET_BFIN)
+
+struct target_stat {
+	unsigned short st_dev;
+	unsigned short __pad1;
+	unsigned long st_ino;
+	unsigned short st_mode;
+	unsigned short st_nlink;
+	unsigned short st_uid;
+	unsigned short st_gid;
+	unsigned short st_rdev;
+	unsigned short __pad2;
+	unsigned long st_size;
+	unsigned long st_blksize;
+	unsigned long st_blocks;
+	unsigned long target_st_atime;
+	unsigned long __unused1;
+	unsigned long target_st_mtime;
+	unsigned long __unused2;
+	unsigned long target_st_ctime;
+	unsigned long __unused3;
+	unsigned long __unused4;
+	unsigned long __unused5;
+};
+
+/* This matches struct stat64 in glibc2.1, hence the absolutely
+ * insane amounts of padding around dev_t's.
+ */
+struct target_stat64 {
+	unsigned long long st_dev;
+	unsigned char __pad1[4];
+
+#define STAT64_HAS_BROKEN_ST_INO	1
+	unsigned long __st_ino;
+
+	unsigned int st_mode;
+	unsigned int st_nlink;
+
+	unsigned long st_uid;
+	unsigned long st_gid;
+
+	unsigned long long st_rdev;
+	unsigned char __pad2[4];
+
+	long long st_size;
+	unsigned long st_blksize;
+
+	long long st_blocks;	/* Number 512-byte blocks allocated. */
+
+	unsigned long target_st_atime;
+	unsigned long target_st_atime_nsec;
+
+	unsigned long target_st_mtime;
+	unsigned long target_st_mtime_nsec;
+
+	unsigned long target_st_ctime;
+	unsigned long target_st_ctime_nsec;
+
+	unsigned long long st_ino;
 };
 
 #elif defined(TARGET_ALPHA)
