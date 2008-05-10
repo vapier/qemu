@@ -1,0 +1,25 @@
+CEC behavior in user-emulation (SP vs USP)
+
+see if making a global "0", "1", "2", and "4" register speeds things up
+
+TB chaining is not implemented
+
+we often over-translate code blocks.  consider a bfin mem/str func:
+	{
+	[1] setup code
+	[2] hwloop0
+	[3] some other stuff
+	[4] hwloop1
+	[5] clean up / return
+	}
+the first TB will go from the start to the end (since there are no
+unconditional branches).  then when we hit the hwloop bottom, we jump
+back up to the top of the hwloop and a new TB which goes all the way
+to the end of the func.  so we end up with the TBs covering:
+	{1-5} {2-5} {3-5} {4-5} {5-5}
+In reality, we probably want to have the TBs to be like:
+	{[1] to LSETUP then to LT0 (usually the same)}
+	{[2] LT0 to LB0}
+	{[3] to LSETUP then to LT1 (usually the same)}
+	{[4] LT1 to LB1}
+	{[5]}
