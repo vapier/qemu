@@ -542,6 +542,9 @@ void disas(FILE *out, void *code, unsigned long size)
     print_insn = print_insn_arm;
     s.info.cap_arch = CS_ARCH_ARM;
     /* TCG only generates code for arm mode.  */
+#elif defined(__bfin__)
+    s.info.mach = bfd_mach_bfin;
+    print_insn = print_insn_bfin;
 #elif defined(__MIPSEB__)
     print_insn = print_insn_big_mips;
 #elif defined(__MIPSEL__)
