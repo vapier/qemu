@@ -72,7 +72,7 @@
     || defined(TARGET_S390X) \
     || defined(TARGET_OPENRISC) || defined(TARGET_TILEGX) \
     || defined(TARGET_NIOS2) || defined(TARGET_RISCV) \
-    || defined(TARGET_XTENSA)
+    || defined(TARGET_XTENSA) || defined(TARGET_BFIN)
 
 #define TARGET_IOC_SIZEBITS	14
 #define TARGET_IOC_DIRBITS	2
@@ -1689,6 +1689,68 @@ struct target_stat64 {
 
 	int64_t  	st_blocks;
 };
+
+#elif defined(TARGET_BFIN)
+
+struct target_stat {
+    uint16_t st_dev;
+    uint16_t __pad1;
+    abi_ulong st_ino;
+    uint16_t st_mode;
+    uint16_t st_nlink;
+    uint16_t st_uid;
+    uint16_t st_gid;
+    uint16_t st_rdev;
+    uint16_t __pad2;
+    abi_ulong st_size;
+    abi_ulong st_blksize;
+    abi_ulong st_blocks;
+    abi_ulong target_st_atime;
+    abi_ulong __unused1;
+    abi_ulong target_st_mtime;
+    abi_ulong __unused2;
+    abi_ulong target_st_ctime;
+    abi_ulong __unused3;
+    abi_ulong __unused4;
+    abi_ulong __unused5;
+} __attribute__((packed));
+
+/* This matches struct stat64 in glibc2.1, hence the absolutely
+ * insane amounts of padding around dev_t's.
+ */
+#define TARGET_HAS_STRUCT_STAT64
+struct target_stat64 {
+    uint64_t st_dev;
+    unsigned char __pad1[4];
+
+#define STAT64_HAS_BROKEN_ST_INO 1
+    abi_ulong __st_ino;
+
+    uint32_t st_mode;
+    uint32_t st_nlink;
+
+    abi_ulong st_uid;
+    abi_ulong st_gid;
+
+    uint64_t st_rdev;
+    unsigned char __pad2[4];
+
+    int64_t st_size;
+    abi_ulong st_blksize;
+
+    int64_t st_blocks; /* Number 512-byte blocks allocated. */
+
+    abi_ulong target_st_atime;
+    abi_ulong target_st_atime_nsec;
+
+    abi_ulong target_st_mtime;
+    abi_ulong target_st_mtime_nsec;
+
+    abi_ulong target_st_ctime;
+    abi_ulong target_st_ctime_nsec;
+
+    uint64_t st_ino;
+} __attribute__((packed));
 
 #elif defined(TARGET_ALPHA)
 
