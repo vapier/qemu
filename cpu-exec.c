@@ -217,7 +217,8 @@ int cpu_exec(CPUArchState *env)
 {
     CPUState *cpu = ENV_GET_CPU(env);
 #if !(defined(CONFIG_USER_ONLY) && \
-      (defined(TARGET_M68K) || defined(TARGET_PPC) || defined(TARGET_S390X)))
+      (defined(TARGET_M68K) || defined(TARGET_PPC) || defined(TARGET_S390X) || \
+       defined(TARGET_BFIN)))
     CPUClass *cc = CPU_GET_CLASS(cpu);
 #endif
 #ifdef TARGET_I386
@@ -274,6 +275,7 @@ int cpu_exec(CPUArchState *env)
 #elif defined(TARGET_MOXIE)
 #elif defined(TARGET_OPENRISC)
 #elif defined(TARGET_SH4)
+#elif defined(TARGET_BFIN)
 #elif defined(TARGET_CRIS)
 #elif defined(TARGET_S390X)
 #elif defined(TARGET_XTENSA)
@@ -327,7 +329,8 @@ int cpu_exec(CPUArchState *env)
                     }
 #if defined(TARGET_ARM) || defined(TARGET_SPARC) || defined(TARGET_MIPS) || \
     defined(TARGET_PPC) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) || \
-    defined(TARGET_MICROBLAZE) || defined(TARGET_LM32) || defined(TARGET_UNICORE32)
+    defined(TARGET_MICROBLAZE) || defined(TARGET_LM32) || defined(TARGET_UNICORE32) || \
+    defined(TARGET_BFIN)
                     if (interrupt_request & CPU_INTERRUPT_HALT) {
                         cpu->interrupt_request &= ~CPU_INTERRUPT_HALT;
                         cpu->halted = 1;
@@ -693,7 +696,8 @@ int cpu_exec(CPUArchState *env)
             cpu = current_cpu;
             env = cpu->env_ptr;
 #if !(defined(CONFIG_USER_ONLY) && \
-      (defined(TARGET_M68K) || defined(TARGET_PPC) || defined(TARGET_S390X)))
+      (defined(TARGET_M68K) || defined(TARGET_PPC) || defined(TARGET_S390X) || \
+       defined(TARGET_BFIN)))
             cc = CPU_GET_CLASS(cpu);
 #endif
 #ifdef TARGET_I386
@@ -727,6 +731,7 @@ int cpu_exec(CPUArchState *env)
 #elif defined(TARGET_MOXIE)
 #elif defined(TARGET_OPENRISC)
 #elif defined(TARGET_SH4)
+#elif defined(TARGET_BFIN)
 #elif defined(TARGET_ALPHA)
 #elif defined(TARGET_CRIS)
 #elif defined(TARGET_S390X)
