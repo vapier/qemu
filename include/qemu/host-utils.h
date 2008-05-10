@@ -107,6 +107,96 @@ static inline uint64_t muldiv64(uint64_t a, uint32_t b, uint32_t c)
 #endif
 
 /**
+ * clz8 - count leading zeros in a 8-bit value.
+ * @val: The value to search
+ *
+ * Returns 8 if the value is zero.  Note that the GCC builtin is
+ * undefined if the value is zero.
+ */
+static inline int clz8(uint8_t val)
+{
+    /* Binary search for the leading one bit.  */
+    int cnt = 0;
+
+    if (!(val & 0xF0U)) {
+        cnt += 4;
+        val <<= 4;
+    }
+    if (!(val & 0xC0U)) {
+        cnt += 2;
+        val <<= 2;
+    }
+    if (!(val & 0x80U)) {
+        cnt++;
+        val <<= 1;
+    }
+    if (!(val & 0x80U)) {
+        cnt++;
+    }
+    return cnt;
+}
+
+/**
+ * clo8 - count leading ones in a 8-bit value.
+ * @val: The value to search
+ *
+ * Returns 8 if the value is -1.
+ */
+static inline int clo8(uint8_t val)
+{
+    return clz8(~val);
+}
+
+/**
+ * clz16 - count leading zeros in a 16-bit value.
+ * @val: The value to search
+ *
+ * Returns 16 if the value is zero.  Note that the GCC builtin is
+ * undefined if the value is zero.
+ */
+static inline int clz16(uint16_t val)
+{
+#if QEMU_GNUC_PREREQ(3, 4) && defined(__i386__)
+    return val ? __builtin_clzs(val) : 16;
+#else
+    /* Binary search for the leading one bit.  */
+    int cnt = 0;
+
+    if (!(val & 0xFF00U)) {
+        cnt += 8;
+        val <<= 8;
+    }
+    if (!(val & 0xF000U)) {
+        cnt += 4;
+        val <<= 4;
+    }
+    if (!(val & 0xC000U)) {
+        cnt += 2;
+        val <<= 2;
+    }
+    if (!(val & 0x8000U)) {
+        cnt++;
+        val <<= 1;
+    }
+    if (!(val & 0x8000U)) {
+        cnt++;
+    }
+    return cnt;
+#endif
+}
+
+/**
+ * clo16 - count leading ones in a 16-bit value.
+ * @val: The value to search
+ *
+ * Returns 16 if the value is -1.
+ */
+static inline int clo16(uint16_t val)
+{
+    return clz16(~val);
+}
+
+/**
  * clz32 - count leading zeros in a 32-bit value.
  * @val: The value to search
  *
