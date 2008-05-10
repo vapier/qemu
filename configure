@@ -4408,6 +4408,9 @@ case "$target_name" in
     bflt="yes"
     gdb_xml_files="aarch64-core.xml"
   ;;
+  bfin)
+    bflt="yes"
+  ;;
   cris)
   ;;
   lm32)
