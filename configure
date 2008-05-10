@@ -8393,6 +8393,9 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
   avr)
     disas_config "AVR"
   ;;
+  bfin)
+    disas_config "BFIN"
+  ;;
   cris)
     disas_config "CRIS"
   ;;
