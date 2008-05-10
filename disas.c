@@ -237,6 +237,9 @@ void target_disas(FILE *out, CPUArchState *env, target_ulong code,
         s.info.endian = BFD_ENDIAN_BIG;
 #endif
     }
+#elif defined(TARGET_BFIN)
+    s.info.mach = bfd_mach_bfin;
+    print_insn = print_insn_bfin;
 #elif defined(TARGET_SPARC)
     print_insn = print_insn_sparc;
 #ifdef TARGET_SPARC64
@@ -363,6 +366,9 @@ void disas(FILE *out, void *code, unsigned long size)
     s.info.mach = bfd_mach_sparc_v9b;
 #elif defined(__arm__)
     print_insn = print_insn_arm;
+#elif defined(__bfin__)
+    s.info.mach = bfd_mach_bfin;
+    print_insn = print_insn_bfin;
 #elif defined(__MIPSEB__)
     print_insn = print_insn_big_mips;
 #elif defined(__MIPSEL__)
@@ -466,6 +472,9 @@ void monitor_disas(Monitor *mon, CPUArchState *env,
     print_insn = print_insn_i386;
 #elif defined(TARGET_ARM)
     print_insn = print_insn_arm;
+#elif defined(TARGET_BFIN)
+    s.info.mach = bfd_mach_bfin;
+    print_insn = print_insn_bfin;
 #elif defined(TARGET_ALPHA)
     print_insn = print_insn_alpha;
 #elif defined(TARGET_SPARC)
