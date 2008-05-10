@@ -3624,6 +3624,10 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
     echo "CONFIG_ARM_DIS=y"  >> $config_target_mak
     echo "CONFIG_ARM_DIS=y"  >> $libdis_config_mak
   ;;
+  bfin)
+    echo "CONFIG_BFIN_DIS=y"  >> $config_target_mak
+    echo "CONFIG_BFIN_DIS=y"  >> $libdis_config_mak
+  ;;
   cris)
     echo "CONFIG_CRIS_DIS=y"  >> $config_target_mak
     echo "CONFIG_CRIS_DIS=y"  >> $libdis_config_mak
