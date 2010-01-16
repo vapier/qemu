@@ -35,6 +35,8 @@ qemu-io
 qemu-monitor.texi
 QMP/qmp-commands.txt
 .gdbinit
+.gdb_history
+core
 *.a
 *.aux
 *.cp
