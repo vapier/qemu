@@ -61,7 +61,11 @@ libuser
 /fsdev/virtfs-proxy-helper
 /fsdev/virtfs-proxy-helper.1
 /fsdev/virtfs-proxy-helper.pod
-/.gdbinit
+a.out*
+.gdbinit
+.gdb_history
+core
+gmon.out
 *.a
 *.aux
 *.cp
@@ -95,6 +99,9 @@ libuser
 .pc
 *.gcda
 *.gcno
+*.diff
+*.patch
+*.rej
 patches
 /pc-bios/bios-pq/status
 /pc-bios/vgabios-pq/status
