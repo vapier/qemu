@@ -50,6 +50,8 @@ test-string-output-visitor
 fsdev/virtfs-proxy-helper.1
 fsdev/virtfs-proxy-helper.pod
 .gdbinit
+.gdb_history
+core
 *.a
 *.aux
 *.cp
