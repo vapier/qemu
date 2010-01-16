@@ -43,6 +43,8 @@ qemu-monitor.texi
 QMP/qmp-commands.txt
 test-coroutine
 .gdbinit
+.gdb_history
+core
 *.a
 *.aux
 *.cp
