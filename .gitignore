@@ -15,6 +15,7 @@ libcacard/trace/generated-tracers.c
 *-darwin-user
 *-linux-user
 *-bsd-user
+libcacard/vscclient
 libdis*
 libuser
 linux-headers/asm
@@ -54,7 +55,11 @@ test-visitor-serialization
 fsdev/virtfs-proxy-helper
 fsdev/virtfs-proxy-helper.1
 fsdev/virtfs-proxy-helper.pod
+a.out*
 .gdbinit
+.gdb_history
+core
+gmon.out
 *.a
 *.aux
 *.cp
@@ -86,6 +91,9 @@ fsdev/virtfs-proxy-helper.pod
 *.gcda
 *.gcno
 patches
+*.diff
+*.patch
+*.rej
 pc-bios/bios-pq/status
 pc-bios/vgabios-pq/status
 pc-bios/optionrom/linuxboot.asm
