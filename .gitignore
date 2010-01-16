@@ -58,6 +58,9 @@ QMP/qmp-commands.txt
 *.orig
 .pc
 patches
+*.diff
+*.patch
+*.rej
 pc-bios/bios-pq/status
 pc-bios/vgabios-pq/status
 pc-bios/optionrom/linuxboot.bin
