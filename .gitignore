@@ -56,6 +56,11 @@
 /vscclient
 /fsdev/virtfs-proxy-helper
 *.[1-9]
+a.out*
+.gdbinit
+.gdb_history
+core
+gmon.out
 *.a
 *.aux
 *.cp
@@ -88,6 +93,9 @@
 .sdk
 *.gcda
 *.gcno
+*.diff
+*.patch
+*.rej
 /pc-bios/bios-pq/status
 /pc-bios/vgabios-pq/status
 /pc-bios/optionrom/linuxboot.asm
