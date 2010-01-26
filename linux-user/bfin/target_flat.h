@@ -5,6 +5,7 @@
 static inline int flat_set_persistent(abi_ulong relval, abi_ulong *persistent)
 {
 	int type = (relval >> 26) & 7;
+printf("%s:%i: relval:%x\n", __func__, __LINE__, relval);
 	if (type == 3) {
 		*persistent = relval << 16;
 		return 1;
@@ -19,6 +20,8 @@ flat_get_addr_from_rp(abi_ulong ul_ptr, abi_ulong relval, abi_ulong flags, abi_u
 	uint16_t *usptr = (uint16_t *)ptr;
 	int type = (relval >> 26) & 7;
 	abi_ulong val;
+
+printf("%s:%i: ptr:%x relval:%x flags:%x persistent:%x\n", __func__, __LINE__, ul_ptr, relval, flags, *persistent);
 
 	switch (type) {
 		case 0: /* FLAT_BFIN_RELOC_TYPE_16_BIT */
@@ -44,10 +47,8 @@ flat_get_addr_from_rp(abi_ulong ul_ptr, abi_ulong relval, abi_ulong flags, abi_u
 		abort();
 //		return val + current->mm->context.end_brk;
 
-#ifndef TARGET_WORDS_BIGENDIAN
 	if ((flags & FLAT_FLAG_GOTPIC) == 0)
-		val = bswap32(val);
-#endif
+		val = ntohl(val);
 
 	return val;
 }

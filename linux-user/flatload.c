@@ -637,17 +637,15 @@ static int load_flat_file(struct linux_binprm * bprm,
             /* Get the pointer's value.  */
             if (get_user_ual(addr, rp))
                 return -EFAULT;
-            addr = flat_get_addr_from_rp(rp, relval, flags, &persistent);
+            addr = flat_get_addr_from_rp(rp, relval, flags,
+                                         &persistent);
             if (addr != 0) {
                 /*
                  * Do the relocation.  PIC relocs in the data section are
                  * already in target order
                  */
-
-#ifndef TARGET_WORDS_BIGENDIAN
                 if ((flags & FLAT_FLAG_GOTPIC) == 0)
-                    addr = bswap32(addr);
-#endif
+                    addr = ntohl(addr);
                 addr = calc_reloc(addr, libinfo, id, 0);
                 if (addr == RELOC_FAILED)
                     return -ENOEXEC;
