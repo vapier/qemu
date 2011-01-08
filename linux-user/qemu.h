@@ -51,6 +51,14 @@ struct image_info {
         abi_ulong       arg_start;
         abi_ulong       arg_end;
 	int		personality;
+#ifdef CONFIG_USE_FDPIC
+#define FDPIC_MAX_LOAD_SEGS 4
+        abi_ulong       loadmap_addr;
+        uint16_t        nsegs;
+        void           *loadsegs;
+        abi_ulong       pt_dynamic_addr;
+        struct image_info *other_info;
+#endif
 };
 
 #ifdef TARGET_I386
