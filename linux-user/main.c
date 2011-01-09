@@ -35,7 +35,7 @@
 #include "qemu-timer.h"
 #include "envlist.h"
 
-#define DEBUG_LOGFILE "/tmp/qemu.log"
+#define DEBUG_LOGFILE "/dev/stderr"
 
 char *exec_path;
 

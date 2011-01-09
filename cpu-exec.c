@@ -48,7 +48,7 @@
 int tb_invalidated_flag;
 
 //#define CONFIG_DEBUG_EXEC
-//#define DEBUG_SIGNAL
+#define DEBUG_SIGNAL
 
 int qemu_cpu_has_work(CPUState *env)
 {

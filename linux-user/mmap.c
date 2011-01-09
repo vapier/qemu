@@ -370,6 +370,12 @@ abi_long target_mmap(abi_ulong start, abi_ulong len, int prot,
     mmap_lock();
 #ifdef DEBUG_MMAP
     {
+        if (fd != -1) {
+            char *foo;
+            asprintf(&foo, "ls -l /proc/self/fd/%i", fd);
+            system(foo);
+            free(foo);
+        }
         printf("mmap: start=0x" TARGET_ABI_FMT_lx
                " len=0x" TARGET_ABI_FMT_lx " prot=%c%c%c flags=",
                start, len,
