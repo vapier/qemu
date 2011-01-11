@@ -1120,7 +1120,8 @@ static abi_ulong loader_build_fdpic_loadmap(struct image_info *info, abi_ulong s
     struct elf32_fdpic_loadseg *loadsegs = info->loadsegs;
 
     /* elf32_fdpic_loadseg */
-    for (n = 0; n < info->nsegs; ++n) {
+    n = info->nsegs;
+    while (n--) {
         sp -= 12;
         put_user_u32(loadsegs[n].addr, sp+0);
         put_user_u32(loadsegs[n].p_vaddr, sp+4);
