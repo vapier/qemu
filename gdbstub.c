@@ -1537,7 +1537,7 @@ static void gdb_accept(void)
 
     gdbserver_state = s;
 
-    fcntl(fd, F_SETFL, O_NONBLOCK);
+//    fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 
 static int gdbserver_open(int port)
