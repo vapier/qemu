@@ -6111,13 +6111,14 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
   int src1     = ((iw1 >> DSP32ShiftImm_src1_bits) & DSP32ShiftImm_src1_mask);
   int sop      = ((iw1 >> DSP32ShiftImm_sop_bits) & DSP32ShiftImm_sop_mask);
-//  int bit8     = ((iw1 >> 8) & 0x1);
+  int bit8     = ((iw1 >> 8) & 0x1);
   int immag    = ((iw1 >> DSP32ShiftImm_immag_bits) & DSP32ShiftImm_immag_mask);
   int newimmag = (-(iw1 >> DSP32ShiftImm_immag_bits) & DSP32ShiftImm_immag_mask);
   int dst0     = ((iw1 >> DSP32ShiftImm_dst0_bits) & DSP32ShiftImm_dst0_mask);
   int M        = ((iw0 >> (DSP32ShiftImm_M_bits - 16)) & DSP32ShiftImm_M_mask);
   int sopcde   = ((iw0 >> (DSP32ShiftImm_sopcde_bits - 16)) & DSP32ShiftImm_sopcde_mask);
   int HLs      = ((iw1 >> DSP32ShiftImm_HLs_bits) & DSP32ShiftImm_HLs_mask);
+  TCGv tmp;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32shiftimm);
   TRACE_EXTRACT (cpu, "%s: M:%i sopcde:%i sop:%i HLs:%i dst0:%i immag:%#x src1:%i",
@@ -6125,10 +6126,18 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
   if (sopcde == 0)
     {
+//      bu16 in = DREG (src1) >> ((HLs & 1) ? 16 : 0);
+//      bu16 result;
+//      bu32 v;
+
+      tmp = tcg_temp_new();
+      if (HLs & 1)
+	tcg_gen_shri_tl(tmp, cpu_dreg[src1], 16);
+      else
+	tcg_gen_ext16u_tl(tmp, cpu_dreg[src1]);
+
+      if (0);
 #if 0
-      bu16 in = DREG (src1) >> ((HLs & 1) ? 16 : 0);
-      bu16 result;
-      bu32 v;
       if (sop == 0)
 	/* dregs_hi/lo = dregs_hi/lo >>> imm4 */
 	/* XXX: TRACE_INSN (cpu, "???"); */
@@ -6139,15 +6148,19 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       else if (sop == 1 && bit8)
 	/* dregs_hi/lo = dregs_hi/lo >>> imm4 (S) */
 	result = lshift (cpu, in, immag, 16, 1);
+#endif
       else if (sop == 2 && bit8)
 	/* dregs_hi/lo = dregs_hi/lo >> imm4 */
-	result = lshiftrt (cpu, in, newimmag, 16);
+//	result = lshiftrt (cpu, in, newimmag, 16);
+	tcg_gen_shri_tl(tmp, tmp, newimmag);
       else if (sop == 2 && bit8 == 0)
 	/* dregs_hi/lo = dregs_hi/lo << imm4 */
-	result = lshift (cpu, in, immag, 16, 0);
+//	result = lshift (cpu, in, immag, 16, 0);
+	tcg_gen_shli_tl(tmp, tmp, immag);
       else
-#endif
 	illegal_instruction (dc);
+      tcg_gen_andi_tl(tmp, tmp, 0xffff);
+
 /*
       v = DREG (dst0);
       if (HLs & 2)
@@ -6155,6 +6168,10 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       else
 	STORE (DREG (dst0), (v & 0xFFFF0000) | result);
 */
+      if (HLs & 2)
+	gen_mov_h_tl(cpu_dreg[dst0], tmp);
+      else
+	gen_mov_l_tl(cpu_dreg[dst0], tmp);
     }
 #if 0
   else if (sop == 2 && sopcde == 3 && (HLs == 1 || HLs == 0))
