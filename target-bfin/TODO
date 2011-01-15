@@ -1,3 +1,5 @@
 CONFIG_NEED_MMU mmu.c
 
 CEC behavior in user-emulation (SP vs USP)
+
+see if making a global "0" and "1" register speeds things up

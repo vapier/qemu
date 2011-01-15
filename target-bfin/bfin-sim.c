@@ -1682,7 +1682,9 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0)
 //      bu32 newpc = RETSREG;
       TRACE_INSN (cpu, "RTS;");
 //      TRACE_BRANCH (cpu, pc, newpc, -1, "RTS");
-      gen_goto_tb(dc, 0, cpu_rets);
+//      gen_goto_tb(dc, 0, cpu_rets);
+      dc->is_jmp = DISAS_JUMP;
+      gen_hwloop_check(dc, gen_hwloop_br_direct, &cpu_rets);
 /*
       SET_PCREG (newpc);
       BFIN_CPU_STATE.did_jump = true;
@@ -1761,7 +1763,10 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0)
     {
 //      bu32 newpc = PREG (poprnd);
       TRACE_INSN (cpu, "JUMP (P%i);", poprnd);
-      gen_goto_tb(dc, 0, cpu_preg[poprnd]);
+      dc->is_jmp = DISAS_JUMP;
+      gen_hwloop_check(dc, gen_hwloop_br_direct, &cpu_preg[poprnd]);
+//      gen_maybe_lb_check(dc);
+//      gen_goto_tb(dc, 0, cpu_preg[poprnd]);
 /*
       TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP (Preg)");
       SET_PCREG (newpc);
@@ -1774,8 +1779,10 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0)
     {
 //      bu32 newpc = PREG (poprnd);
       TRACE_INSN (cpu, "CALL (P%i);", poprnd);
-      tcg_gen_movi_tl(cpu_rets, dc->pc + 2);
-      gen_goto_tb(dc, 0, cpu_preg[poprnd]);
+      dc->is_jmp = DISAS_CALL;
+//      gen_maybe_lb_check(dc);
+//      gen_goto_tb(dc, 0, cpu_preg[poprnd]);
+      gen_hwloop_check(dc, gen_hwloop_br_direct, &cpu_preg[poprnd]);
 #if 0
       TRACE_BRANCH (cpu, pc, newpc, -1, "CALL (Preg)");
       /* If we're at the end of a hardware loop, RETS is going to be
@@ -1791,9 +1798,11 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0)
     {
 //      bu32 newpc = pc + PREG (poprnd);
       TRACE_INSN (cpu, "CALL (PC + P%i);", poprnd);
-      tcg_gen_movi_tl(cpu_rets, dc->pc + 2);
-      tcg_gen_addi_tl(cpu_pc, cpu_preg[poprnd], dc->pc);
-      gen_goto_tb(dc, 0, cpu_pc);
+//      tcg_gen_movi_tl(cpu_rets, dc->pc + 2);
+//      tcg_gen_addi_tl(cpu_pc, cpu_preg[poprnd], dc->pc);
+//      gen_goto_tb(dc, 0, cpu_pc);
+      dc->is_jmp = DISAS_CALL;
+      gen_hwloop_check(dc, gen_hwloop_br_pcrel, &cpu_preg[poprnd]);
 /*
       TRACE_BRANCH (cpu, pc, newpc, -1, "CALL (PC + Preg)");
       SET_RETSREG (hwloop_get_next_pc (cpu, pc, 2));
@@ -1807,8 +1816,10 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0)
     {
 //      bu32 newpc = pc + PREG (poprnd);
       TRACE_INSN (cpu, "JUMP (PC + P%i);", poprnd);
-      tcg_gen_addi_tl(cpu_pc, cpu_preg[poprnd], dc->pc);
-      gen_goto_tb(dc, 0, cpu_pc);
+//      tcg_gen_addi_tl(cpu_pc, cpu_preg[poprnd], dc->pc);
+//      gen_goto_tb(dc, 0, cpu_pc);
+      dc->is_jmp = DISAS_JUMP;
+      gen_hwloop_check(dc, gen_hwloop_br_pcrel, &cpu_preg[poprnd]);
 /*
       TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP (PC + Preg)");
       SET_PCREG (newpc);
@@ -2452,7 +2463,8 @@ decode_BRCC_0 (DisasContext *dc, bu16 iw0)
   int offset = ((iw0 >> BRCC_offset_bits) & BRCC_offset_mask);
 //  int cond = T ? CCREG : ! CCREG;
   int pcrel = pcrel10 (offset);
-  int l;
+//  int l;
+//  int hwloop;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_BRCC);
   TRACE_EXTRACT (cpu, "%s: T:%i B:%i offset:%#x", __func__, T, B, offset);
@@ -2472,12 +2484,24 @@ decode_BRCC_0 (DisasContext *dc, bu16 iw0)
   tcg_gen_movi_tl(cpu_pc, dc->pc + pcrel);
   tcg_gen_exit_tb(0); //(long)dc->tb + 1);
 #else
+//  dc->is_jmp = DISAS_JUMP;
+  gen_hwloop_check(dc, gen_hwloop_br_pcrel_cc, (void *)(unsigned long)(pcrel | T));
+#if 0
+//  hwloop = gen_maybe_lb_check(dc);
   l = gen_new_label();
   tcg_gen_brcondi_tl(TCG_COND_NE, cpu_cc, T, l);
+//  dc->insn_len = dc->pc + pcrel;
+//  if (!gen_maybe_lb_check(dc))
+    gen_gotoi_tb(dc, 0, dc->pc + pcrel);
+//  dc->is_jmp = 0;
+#if 0
   tcg_gen_goto_tb(0); //1);
   tcg_gen_movi_tl(cpu_pc, dc->pc + pcrel);
   tcg_gen_exit_tb(0); //(long)dc->tb + 1);
+#endif
   gen_set_label(l);
+  if (hwloop & 0x2)
+#endif
 #endif
 
 /*
@@ -2541,7 +2565,8 @@ decode_UJUMP_0 (DisasContext *dc, bu16 iw0)
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
   int offset = ((iw0 >> UJump_offset_bits) & UJump_offset_mask);
   int pcrel = pcrel12 (offset);
-  bu32 newpc = dc->pc + pcrel;
+  TCGv tmp;
+//  bu32 newpc = dc->pc + pcrel;
 //  int l;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_UJUMP);
@@ -2551,11 +2576,14 @@ decode_UJUMP_0 (DisasContext *dc, bu16 iw0)
   TRACE_INSN (cpu, "JUMP.S %#x;", pcrel);
 
 //  l = gen_new_label();
-  gen_gotoi_tb(dc, 0, newpc);
+//  gen_gotoi_tb(dc, 0, newpc);
 //  tcg_gen_br(l);
 //  gen_set_label(l);
 
-//  dc->is_jmp = DISAS_JUMP;
+  dc->is_jmp = DISAS_JUMP;
+  tmp = tcg_const_tl(pcrel);
+  gen_hwloop_check(dc, gen_hwloop_br_pcrel, &tmp);
+  tcg_temp_free(tmp);
 
 //  TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP.S");
 
@@ -3925,7 +3953,8 @@ decode_CALLa_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   int lsw = ((iw1 >> 0) & 0xffff);
   int msw = ((iw0 >> 0) & 0xff);
   int pcrel = pcrel24 ((msw << 16) | lsw);
-  bu32 newpc = dc->pc + pcrel;
+//  bu32 newpc = dc->pc + pcrel;
+  TCGv tmp;
 
 //  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_CALLa);
   TRACE_EXTRACT (cpu, "%s: S:%i msw:%#x lsw:%#x", __func__, S, msw, lsw);
@@ -3937,12 +3966,19 @@ decode_CALLa_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
     {
 //      TRACE_BRANCH (cpu, pc, newpc, -1, "CALL");
 //      SET_RETSREG (hwloop_get_next_pc (cpu, pc, 4));
-      tcg_gen_movi_tl(cpu_rets, dc->pc + 4);
+//      tcg_gen_movi_tl(cpu_rets, dc->pc + 4);
+      dc->is_jmp = DISAS_CALL;
     }
-//  else
+  else
+    {
 //    TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP.L");
+      dc->is_jmp = DISAS_JUMP;
+//      gen_gotoi_tb(dc, 0, newpc);
+    }
+  tmp = tcg_const_tl(pcrel);
+  gen_hwloop_check(dc, gen_hwloop_br_pcrel, &tmp);
+  tcg_temp_free(tmp);
 
-  gen_gotoi_tb(dc, 0, newpc);
 /*
   SET_PCREG (newpc);
   BFIN_CPU_STATE.did_jump = true;

@@ -139,6 +139,8 @@ typedef struct DisasContext {
 	target_ulong insn_len;
 	/* The current actual PC (base of parallel insn) */
 	target_ulong multi_pc;
+
+	int did_hwloop;
 	int is_jmp;
 	int mem_idx;
 } DisasContext;

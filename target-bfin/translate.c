@@ -8,6 +8,7 @@
  */
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,6 +24,9 @@
 #include "helper.h"
 #define GEN_HELPER 1
 #include "helper.h"
+
+/* We're making a call (which means we need to update RTS) */
+#define DISAS_CALL 0xad0
 
 static TCGv_ptr cpu_env;
 static TCGv cpu_dreg[8];
@@ -215,24 +219,6 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	log_target_disas(env->pc, len, 0);
 }
 
-static void gen_gotoi_tb(DisasContext *dc, int tb_num, target_ulong dest)
-{
-	TranslationBlock *tb;
-	tb = dc->tb;
-/*
-printf("%s: here\n", __func__);
-	if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK)) {
-		tcg_gen_goto_tb(tb_num);
-		tcg_gen_movi_tl(cpu_pc, dest);
-		tcg_gen_exit_tb((long)tb + tb_num);
-	} else */{
-		tcg_gen_goto_tb(0);
-		tcg_gen_movi_tl(cpu_pc, dest);
-		tcg_gen_exit_tb(0);
-		dc->is_jmp = DISAS_TB_JUMP;
-	}
-}
-
 static void gen_goto_tb(DisasContext *dc, int tb_num, TCGv dest)
 {
 	TranslationBlock *tb;
@@ -241,14 +227,21 @@ static void gen_goto_tb(DisasContext *dc, int tb_num, TCGv dest)
 printf("%s: here\n", __func__);
 	if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK)) {
 		tcg_gen_goto_tb(tb_num);
-		tcg_gen_movi_tl(cpu_pc, dest);
+		tcg_gen_mov_tl(cpu_pc, dest);
 		tcg_gen_exit_tb((long)tb + tb_num);
 	} else */{
 		tcg_gen_goto_tb(0);
 		tcg_gen_mov_tl(cpu_pc, dest);
 		tcg_gen_exit_tb(0);
-		dc->is_jmp = DISAS_TB_JUMP;
 	}
+}
+
+static void gen_gotoi_tb(DisasContext *dc, int tb_num, target_ulong dest)
+{
+	TCGv tmp = tcg_temp_local_new();
+	tcg_gen_movi_tl(tmp, dest);
+	gen_goto_tb(dc, tb_num, tmp);
+	tcg_temp_free(tmp);
 }
 
 static void cec_exception(DisasContext *dc, int excp)
@@ -271,23 +264,12 @@ static void cec_require_supervisor(DisasContext *dc)
 }
 
 /*
- * If a LC reg is written, we need to invalidate everything so we can
- * start generating opcodes 
+ * If a LB reg is written, we need to invalidate the two translation
+ * blocks that could be affected -- the TB's referenced by the old LB
+ * could have LC/LT handling which we no longer want, and the new LB
+ * is probably missing LC/LT handling which we want.  In both cases,
+ * we need to regenerate the block.
  */
-#if 0
-static void gen_lcreg_check(TCGv *reg)
-{
-	TCGv tmp;
-	int l;
-
-	if (reg != &cpu_lcreg[0] && reg != &cpu_lcreg[1])
-		return;
-
-	l = gen_new_label();
-
-	gen_set_label(l);
-}
-#endif
 static void gen_maybe_lb_exit_tb(DisasContext *dc, TCGv *reg)
 {
 	/* XXX: We need to invalidate all TB's */
@@ -295,27 +277,98 @@ static void gen_maybe_lb_exit_tb(DisasContext *dc, TCGv *reg)
 //		gen_gotoi_tb(dc, 0, dc->pc + dc->insn_len);
 }
 
-static int gen_lb_check(DisasContext *dc, int loop)
+typedef void (*hwloop_callback)(DisasContext *dc, int loop, void *data);
+
+static void gen_hwloop_default(DisasContext *dc, int loop, void *data)
 {
-	int l = gen_new_label();
+	if (loop != -1)
+		gen_goto_tb(dc, 0, cpu_ltreg[loop]);
+}
+
+static void _gen_hwloop_call(DisasContext *dc, int loop)
+{
+	if (dc->is_jmp != DISAS_CALL)
+		return;
+
+	if (loop == -1)
+		tcg_gen_movi_tl(cpu_rets, dc->pc + dc->insn_len);
+	else
+		tcg_gen_mov_tl(cpu_rets, cpu_ltreg[loop]);
+}
+
+static void gen_hwloop_br_pcrel_cc(DisasContext *dc, int loop, void *data)
+{
+	int l;
+	int pcrel = (unsigned long)data;
+	int T = pcrel & 1;
+	pcrel &= ~1;
+
+	l = gen_new_label();
+	tcg_gen_brcondi_tl(TCG_COND_NE, cpu_cc, T, l);
+	gen_gotoi_tb(dc, 0, dc->pc + pcrel);
+	gen_set_label(l);
+	gen_hwloop_default(dc, loop, data);
+}
+
+static void gen_hwloop_br_pcrel(DisasContext *dc, int loop, void *data)
+{
+	TCGv *reg = data;
+	_gen_hwloop_call(dc, loop);
+	tcg_gen_addi_tl(cpu_pc, *reg, dc->pc);
+	gen_goto_tb(dc, 0, cpu_pc);
+}
+
+static void gen_hwloop_br_direct(DisasContext *dc, int loop, void *data)
+{
+	TCGv *reg = data;
+	_gen_hwloop_call(dc, loop);
+	gen_goto_tb(dc, 0, *reg);
+}
+
+static void _gen_hwloop_check(DisasContext *dc, int loop, int l,
+                              hwloop_callback gen_callback, void *data)
+{
 	tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_lcreg[loop], 0, l);
 	tcg_gen_subi_tl(cpu_lcreg[loop], cpu_lcreg[loop], 1);
 	tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_lcreg[loop], 0, l);
-	gen_goto_tb(dc, 0, cpu_ltreg[loop]);
-	gen_set_label(l);
-	return 1;
+	gen_callback(dc, loop, data);
 }
 
-static int gen_maybe_lb_check(DisasContext *dc)
+static void gen_hwloop_check(DisasContext *dc,
+                             hwloop_callback gen_callback, void *data)
 {
-	int ret, loop;
+	bool loop1, loop0;
+	int endl;
 
-	ret = 0;
-	for (loop = 1; loop >= 0; --loop)
-		if (dc->pc == dc->env->lbreg[loop])
-			ret = gen_lb_check(dc, loop);
+	dc->did_hwloop = 1;
+	loop1 = (dc->pc == dc->env->lbreg[1]);
+	loop0 = (dc->pc == dc->env->lbreg[0]);
 
-	return ret;
+	if (loop1 || loop0)
+		endl = gen_new_label();
+
+	if (loop1) {
+		int l;
+		if (loop0)
+			l = gen_new_label();
+		else
+			l = endl;
+
+		_gen_hwloop_check(dc, 1, l, gen_callback, data);
+
+		if (loop0) {
+			tcg_gen_br(endl);
+			gen_set_label(l);
+		}
+	}
+
+	if (loop0)
+		_gen_hwloop_check(dc, 0, endl, gen_callback, data);
+
+	if (loop1 || loop0)
+		gen_set_label(endl);
+
+	gen_callback(dc, -1, data);
 }
 
 /* R#.L = reg */
@@ -488,6 +541,7 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 
 	dc->is_jmp = DISAS_NEXT;
 	dc->pc = pc_start;
+//	dc->called_pc = 0;
 //	dc->singlestep_enabled = env->singlestep_enabled;
 //	dc->cpustate_changed = 0;
 
@@ -529,9 +583,10 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 		if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP)))
 			tcg_gen_debug_insn_start(dc->pc);
 
+		dc->did_hwloop = 0;
 		/*dc->insn_len = */interp_insn_bfin(dc);
-		if (gen_maybe_lb_check(dc))
-			gen_gotoi_tb(dc, 0, dc->pc + dc->insn_len);
+		if (!dc->did_hwloop)
+			gen_hwloop_check(dc, gen_hwloop_default, NULL);
 		dc->pc += dc->insn_len;
 
 		++num_insns;
@@ -546,21 +601,23 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 		gen_io_end();
 
 	if (unlikely(env->singlestep_enabled)) {
+abort();
 		cec_exception(dc, EXCP_DEBUG);
-		if (dc->is_jmp == DISAS_NEXT)
-			tcg_gen_movi_tl(cpu_pc, dc->pc);
+//		if (dc->is_jmp == DISAS_NEXT)
+//			tcg_gen_movi_tl(cpu_pc, dc->pc);
 	} else {
 		switch (dc->is_jmp) {
 			case DISAS_NEXT:
 				gen_gotoi_tb(dc, 1, dc->pc);
 				break;
 			default:
-			case DISAS_JUMP:
 			case DISAS_UPDATE:
 				/* indicate that the hash table must be used
 				   to find the next TB */
 				tcg_gen_exit_tb(0);
 				break;
+			case DISAS_CALL:
+			case DISAS_JUMP:
 			case DISAS_TB_JUMP:
 				/* nothing more to generate */
 				break;
