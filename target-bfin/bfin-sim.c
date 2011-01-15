@@ -20,13 +20,38 @@
    Foundation, Inc., 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.  */
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 
-#include "bfin-sim.h"
 #include "dv-bfin_cec.h"
+
+/* XXX: kill these typedefs and TRACE_xxx defines */
+typedef uint8_t bu8;
+typedef uint16_t bu16;
+typedef uint32_t bu32;
+typedef uint64_t bu40;
+typedef uint64_t bu64;
+typedef int8_t bs8;
+typedef int16_t bs16;
+typedef int32_t bs32;
+typedef int64_t bs40;
+typedef int64_t bs64;
+
+#define PROFILE_COUNT_INSN(...)
+#define _TRACE_STUB(cpu, fmt, args...) do { if (0) printf (fmt, ## args); } while (0)
+#define TRACE_INSN(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_IN_ASM, fmt "\n", ## args); } while (0)
+#define TRACE_DECODE(...) _TRACE_STUB(__VA_ARGS__)
+#define TRACE_EXTRACT(...) _TRACE_STUB(__VA_ARGS__)
+#define TRACE_CORE(...) _TRACE_STUB(__VA_ARGS__)
+#define TRACE_EVENTS(...) _TRACE_STUB(__VA_ARGS__)
+#define TRACE_BRANCH(...) _TRACE_STUB(__VA_ARGS__)
+#define TRACE_REGISTER(...) _TRACE_STUB(__VA_ARGS__)
+
+#define BFIN_L1_CACHE_BYTES       32
 
 #define M_S2RND 1
 #define M_T     2
@@ -5524,6 +5549,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       else
 	STORE (DREG (dst0), REG_H_L (val << 16, DREG (dst0)));
     }
+//#endif
   else if (sop == 2 && sopcde == 0)
     {
       bs32 shft = (bs8)(DREG (src0) << 2) >> 2;
@@ -5548,10 +5574,11 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       else
 	SET_DREG (dst0, REG_H_L (val << 16, DREG (dst0)));
 
-      SET_ASTATREG (az, !((val & 0xFFFF0000) == 0) || ((val & 0xFFFF) == 0));
-      SET_ASTATREG (an, (!!(val & 0x80000000)) ^ (!!(val & 0x8000)));
-      SET_ASTATREG (v, 0);
+//      SET_ASTATREG (az, !((val & 0xFFFF0000) == 0) || ((val & 0xFFFF) == 0));
+//      SET_ASTATREG (an, (!!(val & 0x80000000)) ^ (!!(val & 0x8000)));
+//      SET_ASTATREG (v, 0);
     }
+//#if 0
   else if (sop == 2 && sopcde == 3 && (HLs == 1 || HLs == 0))
     {
       int shift = imm6 (DREG (src0) & 0xFFFF);
@@ -6144,10 +6171,12 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	result = ashiftrt (cpu, in, newimmag, 16);
       else if (sop == 1 && bit8 == 0)
 	/*  dregs_hi/lo = dregs_hi/lo << imm4 (S) */
-	result = lshift (cpu, in, immag, 16, 1);
+//	result = lshift (cpu, in, immag, 16, 1);
+	tcg_gen_shli_tl(tmp, tmp, immag);
       else if (sop == 1 && bit8)
 	/* dregs_hi/lo = dregs_hi/lo >>> imm4 (S) */
-	result = lshift (cpu, in, immag, 16, 1);
+//	result = lshift (cpu, in, immag, 16, 1);
+	tcg_gen_shri_tl(tmp, tmp, immag);
 #endif
       else if (sop == 2 && bit8)
 	/* dregs_hi/lo = dregs_hi/lo >> imm4 */
@@ -6413,7 +6442,7 @@ decode_psedoDEBUG_0 (DisasContext *dc, bu16 iw0)
   else if (grp == 0 && fn == 2)
     {
       TRACE_INSN (cpu, "OUTC R%i;", reg);
-      outc (dc, DREG (reg));
+      gen_helper_outc(cpu_dreg[reg]);
     }
 /*
   else if (fn == 0)
