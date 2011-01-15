@@ -5720,7 +5720,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       /* Assume LSHIFT with positive magnitude for now */
       tmp = tcg_temp_new();
       tcg_gen_andi_tl(tmp, cpu_dreg[src0], 0x3f);
-      if (sop == 2)
+      if (sop != 2)
 	tcg_gen_sar_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
       else
 	tcg_gen_shl_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
