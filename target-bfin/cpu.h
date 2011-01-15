@@ -138,7 +138,7 @@ typedef struct DisasContext {
 	/* Length of current insn (2/4/8) */
 	target_ulong insn_len;
 	/* The current actual PC (base of parallel insn) */
-	target_ulong multi_pc;
+//	target_ulong multi_pc;
 
 	int did_hwloop;
 	int is_jmp;

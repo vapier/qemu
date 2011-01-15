@@ -271,11 +271,11 @@ fmtconst_val (const_forms_t cf, bu32 x, bu32 pc)
 #define uimm16s4(x)	fmtconst_val (c_uimm16s4, x, 0)
 #define uimm16s4_str(x)	fmtconst_str (c_uimm16s4, x, 0)
 #define uimm16s4d(x)	fmtconst_val (c_uimm16s4d, x, 0)
-#define pcrel4(x)	fmtconst_val (c_pcrel4, x, dc->pc)
-#define pcrel8(x)	fmtconst_val (c_pcrel8, x, dc->pc)
-#define pcrel8s4(x)	fmtconst_val (c_pcrel8s4, x, dc->pc)
-#define pcrel10(x)	fmtconst_val (c_pcrel10, x, dc->pc)
-#define pcrel12(x)	fmtconst_val (c_pcrel12, x, dc->pc)
+#define pcrel4(x)	fmtconst_val (c_pcrel4, x, pc)
+#define pcrel8(x)	fmtconst_val (c_pcrel8, x, pc)
+#define pcrel8s4(x)	fmtconst_val (c_pcrel8s4, x, pc)
+#define pcrel10(x)	fmtconst_val (c_pcrel10, x, pc)
+#define pcrel12(x)	fmtconst_val (c_pcrel12, x, pc)
 #define negimm5s4(x)	fmtconst_val (c_negimm5s4, x, 0)
 #define negimm5s4_str(x)	fmtconst_str (c_negimm5s4, x, 0)
 #define rimm16(x)	fmtconst_val (c_rimm16, x, 0)
@@ -302,7 +302,7 @@ fmtconst_val (const_forms_t cf, bu32 x, bu32 pc)
 #define uimm4s4(x)	fmtconst_val (c_uimm4s4, x, 0)
 #define uimm4s4_str(x)	fmtconst_str (c_uimm4s4, x, 0)
 #define uimm4s4d(x)	fmtconst_val (c_uimm4s4d, x, 0)
-#define lppcrel10(x)	fmtconst_val (c_lppcrel10, x, dc->pc)
+#define lppcrel10(x)	fmtconst_val (c_lppcrel10, x, pc)
 #define imm3(x)		fmtconst_val (c_imm3, x, 0)
 #define imm3_str(x)	fmtconst_str (c_imm3, x, 0)
 #define imm4(x)		fmtconst_val (c_imm4, x, 0)
@@ -314,8 +314,8 @@ fmtconst_val (const_forms_t cf, bu32 x, bu32 pc)
 #define imm7_str(x)	fmtconst_str (c_imm7, x, 0)
 #define imm7d(x)	fmtconst_val (c_imm7d, x, 0)
 #define imm8(x)		fmtconst_val (c_imm8, x, 0)
-#define pcrel24(x)	fmtconst_val (c_pcrel24, x, dc->pc)
-#define pcrel24_str(x)	fmtconst_str (c_pcrel24, x, dc->pc)
+#define pcrel24(x)	fmtconst_val (c_pcrel24, x, pc)
+#define pcrel24_str(x)	fmtconst_str (c_pcrel24, x, pc)
 #define uimm16(x)	fmtconst_val (c_uimm16, x, 0)
 #define uimm32(x)	fmtconst_val (c_uimm32, x, 0)
 #define imm32(x)	fmtconst_val (c_imm32, x, 0)
@@ -1663,7 +1663,7 @@ hwloop_get_next_pc (DisasContext *dc, bu32 pc, bu32 insn_len)
 #endif
 
 static void
-decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0)
+decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
 {
   /* ProgCtrl
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
@@ -2452,7 +2452,7 @@ decode_CC2stat_0 (DisasContext *dc, bu16 iw0)
 }
 
 static void
-decode_BRCC_0 (DisasContext *dc, bu16 iw0)
+decode_BRCC_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
 {
   /* BRCC
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
@@ -2557,7 +2557,7 @@ decode_BRCC_0 (DisasContext *dc, bu16 iw0)
 }
 
 static void
-decode_UJUMP_0 (DisasContext *dc, bu16 iw0)
+decode_UJUMP_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
 {
   /* UJUMP
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
@@ -3841,7 +3841,7 @@ decode_LDSTii_0 (DisasContext *dc, bu16 iw0)
 }
 
 static void
-decode_LoopSetup_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
+decode_LoopSetup_0 (DisasContext *dc, bu16 iw0, bu16 iw1, target_ulong pc)
 {
   /* LoopSetup
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
@@ -3942,7 +3942,7 @@ decode_LDIMMhalf_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 }
 
 static void
-decode_CALLa_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
+decode_CALLa_0 (DisasContext *dc, bu16 iw0, bu16 iw1, target_ulong pc)
 {
   /* CALLa
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
@@ -4395,6 +4395,7 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   int M    = ((iw0 >> (DSP32Alu_M_bits - 16)) & DSP32Alu_M_mask);
   int HL   = ((iw0 >> (DSP32Alu_HL_bits - 16)) & DSP32Alu_HL_mask);
   int aopcde = ((iw0 >> (DSP32Alu_aopcde_bits - 16)) & DSP32Alu_aopcde_mask);
+  TCGv tmp;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32alu);
   TRACE_EXTRACT (cpu, "%s: M:%i HL:%i aopcde:%i aop:%i s:%i x:%i dst0:%i "
@@ -5359,16 +5360,40 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 		(((((s0 >> 16) & 0xff) - ((s1 >> 16) & 0xff)) <<  0) & 0xffff) |
 		(((((s0 >> 24) & 0xff) - ((s1 >> 24) & 0xff)) << 16)));
     }
+#endif
   else if (aop == 1 && aopcde == 7)
     {
+      int l;
       TRACE_INSN (cpu, "R%i = MIN (R%i, R%i);", dst0, src0, src1);
-      SET_DREG (dst0, min32 (cpu, DREG (src0), DREG (src1)));
+//      SET_DREG (dst0, min32 (cpu, DREG (src0), DREG (src1)));
+      /* Source and dest regs might be the same, so we can't clobber;
+         XXX: Well, we could, but we need the logic here to be smarter */
+      tmp = tcg_temp_local_new();
+      l = gen_new_label();
+      tcg_gen_mov_tl(tmp, cpu_dreg[src0]);
+      tcg_gen_brcond_tl(TCG_COND_GE, cpu_dreg[src1], cpu_dreg[src0], l);
+      tcg_gen_mov_tl(tmp, cpu_dreg[src1]);
+      gen_set_label(l);
+      tcg_gen_mov_tl(cpu_dreg[dst0], tmp);
+      tcg_temp_free(tmp);
     }
   else if (aop == 0 && aopcde == 7)
     {
+      int l;
       TRACE_INSN (cpu, "R%i = MAX (R%i, R%i);", dst0, src0, src1);
-      SET_DREG (dst0, max32 (cpu, DREG (src0), DREG (src1)));
+//      SET_DREG (dst0, max32 (cpu, DREG (src0), DREG (src1)));
+      /* Source and dest regs might be the same, so we can't clobber;
+         XXX: Well, we could, but we need the logic here to be smarter */
+      tmp = tcg_temp_local_new();
+      l = gen_new_label();
+      tcg_gen_mov_tl(tmp, cpu_dreg[src0]);
+      tcg_gen_brcond_tl(TCG_COND_LT, cpu_dreg[src1], cpu_dreg[src0], l);
+      tcg_gen_mov_tl(tmp, cpu_dreg[src1]);
+      gen_set_label(l);
+      tcg_gen_mov_tl(cpu_dreg[dst0], tmp);
+      tcg_temp_free(tmp);
     }
+#if 0
   else if (aop == 2 && aopcde == 7)
     {
       bu32 val = DREG (src0);
@@ -6571,12 +6596,12 @@ decode_psedodbg_assert_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
 /* Interpret a single 16bit/32bit insn; no parallel insn handling */
 static unsigned int
-_interp_insn_bfin (DisasContext *dc)
+_interp_insn_bfin (DisasContext *dc, target_ulong pc)
 {
-//  unsigned int insn_len;
+  //unsigned int insn_len;
   bu16 iw0, iw1;
 
-  iw0 = lduw_code (dc->pc);
+  iw0 = lduw_code (pc);
   if ((iw0 & 0xc000) != 0xc000)
     {
       /* 16-bit opcode */
@@ -6584,7 +6609,7 @@ _interp_insn_bfin (DisasContext *dc)
 
       TRACE_EXTRACT (cpu, "%s: iw0:%#x", __func__, iw0);
       if ((iw0 & 0xFF00) == 0x0000)
-	decode_ProgCtrl_0 (dc, iw0);
+	decode_ProgCtrl_0 (dc, iw0, pc);
       else if ((iw0 & 0xFFC0) == 0x0240)
 	decode_CaCTRL_0 (dc, iw0);
       else if ((iw0 & 0xFF80) == 0x0100)
@@ -6600,9 +6625,9 @@ _interp_insn_bfin (DisasContext *dc)
       else if ((iw0 & 0xFF00) == 0x0300)
 	decode_CC2stat_0 (dc, iw0);
       else if ((iw0 & 0xF000) == 0x1000)
-	decode_BRCC_0 (dc, iw0);
+	decode_BRCC_0 (dc, iw0, pc);
       else if ((iw0 & 0xF000) == 0x2000)
-	decode_UJUMP_0 (dc, iw0);
+	decode_UJUMP_0 (dc, iw0, pc);
       else if ((iw0 & 0xF000) == 0x3000)
 	decode_REGMV_0 (dc, iw0);
       else if ((iw0 & 0xFC00) == 0x4000)
@@ -6640,7 +6665,7 @@ _interp_insn_bfin (DisasContext *dc)
     }
 
   /* Grab the next 16 bits to determine if it's a 32-bit or 64-bit opcode.  */
-  iw1 = lduw_code (dc->pc + 2);
+  iw1 = lduw_code (pc + 2);
   if ((iw0 & BIT_MULTI_INS) && (iw0 & 0xe800) != 0xe800 /* not linkage */)
     dc->insn_len = 8;
   else
@@ -6655,11 +6680,11 @@ _interp_insn_bfin (DisasContext *dc)
       TRACE_INSN (cpu, "MNOP;");
     }
   else if (((iw0 & 0xFF80) == 0xE080) && ((iw1 & 0x0C00) == 0x0000))
-    decode_LoopSetup_0 (dc, iw0, iw1);
+    decode_LoopSetup_0 (dc, iw0, iw1, pc);
   else if (((iw0 & 0xFF00) == 0xE100) && ((iw1 & 0x0000) == 0x0000))
     decode_LDIMMhalf_0 (dc, iw0, iw1);
   else if (((iw0 & 0xFE00) == 0xE200) && ((iw1 & 0x0000) == 0x0000))
-    decode_CALLa_0 (dc, iw0, iw1);
+    decode_CALLa_0 (dc, iw0, iw1, pc);
   else if (((iw0 & 0xFC00) == 0xE400) && ((iw1 & 0x0000) == 0x0000))
     decode_LDSTidxI_0 (dc, iw0, iw1);
   else if (((iw0 & 0xFFFE) == 0xE800) && ((iw1 & 0x0000) == 0x0000))
@@ -6695,16 +6720,14 @@ _interp_insn_bfin (DisasContext *dc)
 void
 interp_insn_bfin (DisasContext *dc)
 {
-  dc->multi_pc = dc->pc;
-
-  dc->insn_len = _interp_insn_bfin (dc);
+  /*dc->insn_len = */_interp_insn_bfin (dc, dc->pc);
 
   /* Proper display of multiple issue instructions */
   if (dc->insn_len == 8)
     {
-      dc->pc = dc->multi_pc + 4;
-      _interp_insn_bfin (dc);
-      dc->pc = dc->multi_pc + 6;
-      _interp_insn_bfin (dc);
+      _interp_insn_bfin (dc, dc->pc + 4);
+      _interp_insn_bfin (dc, dc->pc + 6);
+      /* Reset back for higher levels to process branches */
+      dc->insn_len = 8;
     }
 }
