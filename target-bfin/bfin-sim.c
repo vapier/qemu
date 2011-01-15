@@ -6449,19 +6449,6 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 }
 
 static void
-outc (DisasContext *dc, char ch)
-{
-//  SIM_DESC sd = CPU_STATE (cpu);
-//  sim_io_printf (sd, "%c", ch);
-//  if (ch == '\n')
-//    sim_io_flush_stdout (sd);
-  TCGv tmp = tcg_temp_new();
-  tcg_gen_movi_tl(tmp, ch);
-  gen_helper_outc(tmp);
-  tcg_temp_free(tmp);
-}
-
-static void
 decode_psedoDEBUG_0 (DisasContext *dc, bu16 iw0)
 {
   /* psedoDEBUG
@@ -6528,12 +6515,16 @@ decode_psedoOChar_0 (DisasContext *dc, bu16 iw0)
      | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 1 |.ch............................|
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
   int ch = ((iw0 >> PseudoChr_ch_bits) & PseudoChr_ch_mask);
+  TCGv tmp;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_psedoOChar);
   TRACE_EXTRACT (cpu, "%s: ch:%#x", __func__, ch);
   TRACE_INSN (cpu, "OUTC %#x;", ch);
 
-  outc (dc, ch);
+  tmp = tcg_temp_new();
+  tcg_gen_movi_tl(tmp, ch);
+  gen_helper_outc(tmp);
+  tcg_temp_free(tmp);
 }
 
 static void
@@ -6720,7 +6711,7 @@ _interp_insn_bfin (DisasContext *dc, target_ulong pc)
 void
 interp_insn_bfin (DisasContext *dc)
 {
-  /*dc->insn_len = */_interp_insn_bfin (dc, dc->pc);
+  _interp_insn_bfin (dc, dc->pc);
 
   /* Proper display of multiple issue instructions */
   if (dc->insn_len == 8)
