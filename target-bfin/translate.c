@@ -401,6 +401,19 @@ static void gen_movi_h_tl(TCGv dst, uint32_t src)
 	tcg_gen_ori_tl(dst, dst, src << 16);
 }
 
+static void gen_extNs_tl(TCGv dst, TCGv src, uint32_t n)
+{
+	/* Shift the sign bit up, and then back down */
+	tcg_gen_shli_tl(dst, src, 32 - n);
+	tcg_gen_sari_tl(dst, dst, 32 - n);
+}
+
+static void gen_extNu_tl(TCGv dst, TCGv src, uint32_t n)
+{
+	/* Just mask off the higher bits */
+	tcg_gen_andi_tl(dst, src, ~((1 << n) - 1));
+}
+
 static void gen_helper_signbitsi(TCGv dst, TCGv src, uint32_t size)
 {
 	TCGv tmp_size = tcg_const_tl(size);

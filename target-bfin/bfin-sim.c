@@ -898,7 +898,7 @@ sub32 (DisasContext *dc, bu32 a, bu32 b, int carry, int sat, int parallel)
       flgn = (v >> 31) & 1;
     }
   if (!parallel || flgn)
-  SET_ASTATREG (an, flgn);
+    SET_ASTATREG (an, flgn);
 
   if (overflow)
     SET_ASTATREG (vs, 1);
@@ -2993,6 +2993,7 @@ decode_COMP3op_0 (DisasContext *dc, bu16 iw0)
   int dst  = ((iw0 >> COMP3op_dst_bits) & COMP3op_dst_mask);
   int src0 = ((iw0 >> COMP3op_src0_bits) & COMP3op_src0_mask);
   int src1 = ((iw0 >> COMP3op_src1_bits) & COMP3op_src1_mask);
+  TCGv tmp;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_COMP3op);
   TRACE_EXTRACT (cpu, "%s: opc:%i dst:%i src1:%i src0:%i",
@@ -3003,12 +3004,25 @@ decode_COMP3op_0 (DisasContext *dc, bu16 iw0)
       TRACE_INSN (cpu, "R%i = R%i + R%i;", dst, src0, src1);
 //      SET_DREG (dst, add32 (cpu, DREG (src0), DREG (src1), 1, 0));
       tcg_gen_add_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+
+      tmp = tcg_temp_new();
+      tcg_gen_not_tl(tmp, cpu_dreg[src0]);
+      tcg_gen_setcond_tl(TCG_COND_LTU, tmp, tmp, cpu_dreg[src1]);
+      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AC0]));
+      tcg_temp_free(tmp);
     }
   else if (opc == 1)
     {
       TRACE_INSN (cpu, "R%i = R%i - R%i;", dst, src0, src1);
 //      SET_DREG (dst, sub32 (cpu, DREG (src0), DREG (src1), 1, 0, 0));
       tcg_gen_sub_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+
+      tmp = tcg_temp_new();
+      tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_dreg[src1], cpu_dreg[src0]);
+      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AC0]));
+      tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_dreg[dst], 0x80000000);
+      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AN]));
+      tcg_temp_free(tmp);
     }
   else if (opc == 2)
     {
@@ -3066,6 +3080,7 @@ decode_COMPI2opD_0 (DisasContext *dc, bu16 iw0)
   int dst = ((iw0 >> COMPI2opD_dst_bits) & COMPI2opD_dst_mask);
   int src = ((iw0 >> COMPI2opD_src_bits) & COMPI2opD_src_mask);
   int imm = imm7 (src);
+  TCGv tmp;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_COMPI2opD);
   TRACE_EXTRACT (cpu, "%s: op:%i src:%i dst:%i", __func__, op, src, dst);
@@ -3079,8 +3094,14 @@ decode_COMPI2opD_0 (DisasContext *dc, bu16 iw0)
   else if (op == 1)
     {
       TRACE_INSN (cpu, "R%i += %s;", dst, imm7_str (imm));
-      tcg_gen_addi_tl(cpu_dreg[dst], cpu_dreg[dst], imm);
 //      SET_DREG (dst, add32 (cpu, DREG (dst), imm, 1, 0));
+      tcg_gen_addi_tl(cpu_dreg[dst], cpu_dreg[dst], imm);
+
+      tmp = tcg_temp_new();
+      tcg_gen_not_tl(tmp, cpu_dreg[dst]);
+      tcg_gen_setcondi_tl(TCG_COND_LTU, tmp, tmp, imm);
+      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AC0]));
+      tcg_temp_free(tmp);
     }
 }
 
@@ -5146,6 +5167,11 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       TRACE_INSN (cpu, "R%i = R%i - R%i%s;", dst0, src0, src1, amod1 (s, x));
 //      SET_DREG (dst0, sub32 (cpu, DREG (src0), DREG (src1), 1, s, 0));
       tcg_gen_sub_tl(cpu_dreg[dst0], cpu_dreg[src0], cpu_dreg[src1]);
+
+      tmp = tcg_temp_new();
+      tcg_gen_setcond_tl(TCG_COND_EQ, tmp, cpu_dreg[src0], cpu_dreg[src1]);
+      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AZ]));
+      tcg_temp_free(tmp);
     }
 #if 0
   else if (aop == 2 && aopcde == 4)
@@ -5623,36 +5649,52 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       else
 	STORE (DREG (dst0), REG_H_L (val << 16, DREG (dst0)));
     }
-//#endif
+#endif
   else if (sop == 2 && sopcde == 0)
     {
-      bs32 shft = (bs8)(DREG (src0) << 2) >> 2;
-      bu16 val;
+//      bs32 shft = (bs8)(DREG (src0) << 2) >> 2;
+//      bu16 val;
+      TCGv val;
 
       TRACE_INSN (cpu, "R%i.%c = LSHIFT R%i.%c BY R%i.L;",
 		  dst0, HLs < 2 ? 'L' : 'H',
 		  src1, HLs & 1 ? 'H' : 'L', src0);
 
-      if ((HLs & 1) == 0)
-	val = (bu16)(DREG (src1) & 0xFFFF);
-      else
-	val = (bu16)((DREG (src1) & 0xFFFF0000) >> 16);
+      tmp = tcg_temp_new();
+      gen_extNs_tl(tmp, cpu_dreg[src0], 6);
 
-      if (shft < 0)
-	val = val >> (-1 * shft);
+      val = tcg_temp_new();
+      if (HLs & 1)
+	tcg_gen_shri_tl(val, cpu_dreg[src1], 16);
       else
-	val = val << shft;
+	tcg_gen_ext16u_tl(val, cpu_dreg[src1]);
 
-      if ((HLs & 2) == 0)
-	SET_DREG (dst0, REG_H_L (DREG (dst0), val));
+      /* XXX: a negative shift should be a right shift ... */
+      tcg_gen_shl_tl(val, val, tmp);
+
+      if (HLs & 2)
+	gen_mov_h_tl(cpu_dreg[dst0], val);
       else
-	SET_DREG (dst0, REG_H_L (val << 16, DREG (dst0)));
+	gen_mov_l_tl(cpu_dreg[dst0], val);
+
+      tcg_temp_free(val);
+      tcg_temp_free(tmp);
+
+//      if (shft < 0)
+//	val = val >> (-1 * shft);
+//      else
+//	val = val << shft;
+
+//      if ((HLs & 2) == 0)
+//	SET_DREG (dst0, REG_H_L (DREG (dst0), val));
+//      else
+//	SET_DREG (dst0, REG_H_L (val << 16, DREG (dst0)));
 
 //      SET_ASTATREG (az, !((val & 0xFFFF0000) == 0) || ((val & 0xFFFF) == 0));
 //      SET_ASTATREG (an, (!!(val & 0x80000000)) ^ (!!(val & 0x8000)));
 //      SET_ASTATREG (v, 0);
     }
-//#if 0
+#if 0
   else if (sop == 2 && sopcde == 3 && (HLs == 1 || HLs == 0))
     {
       int shift = imm6 (DREG (src0) & 0xFFFF);
