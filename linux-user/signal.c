@@ -31,7 +31,7 @@
 #include "qemu-common.h"
 #include "target_signal.h"
 
-#define DEBUG_SIGNAL
+//#define DEBUG_SIGNAL
 
 static struct target_sigaltstack target_sigaltstack_used = {
     .ss_sp = 0,
