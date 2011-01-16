@@ -346,7 +346,7 @@ reg_is_reserved (int grp, int reg)
   return (grp == 4 && (reg == 4 || reg == 5)) || (grp == 5);
 }
 
-static TCGv *
+static TCGv
 get_allreg (DisasContext *dc, int grp, int reg)
 {
   int fullreg = (grp << 3) | reg;
@@ -362,41 +362,40 @@ get_allreg (DisasContext *dc, int grp, int reg)
      REG_LASTREG */
   switch (fullreg >> 2)
     {
-    case 0: case 1: return &cpu_dreg[reg];
-    case 2: case 3: return &cpu_preg[reg];
-    case 4: return &cpu_ireg[reg & 3];
-    case 5: return &cpu_mreg[reg & 3];
-    case 6: return &cpu_breg[reg & 3];
-    case 7: return &cpu_lreg[reg & 3];
+    case 0: case 1: return cpu_dreg[reg];
+    case 2: case 3: return cpu_preg[reg];
+    case 4: return cpu_ireg[reg & 3];
+    case 5: return cpu_mreg[reg & 3];
+    case 6: return cpu_breg[reg & 3];
+    case 7: return cpu_lreg[reg & 3];
     default:
       switch (fullreg)
 	{
-	case 32: return &cpu_axreg[0];
-	case 33: return &cpu_awreg[0];
-	case 34: return &cpu_axreg[1];
-	case 35: return &cpu_awreg[1];
-	case 39: return &cpu_rets;
-	case 48: return &cpu_lcreg[0];
-	case 49: return &cpu_ltreg[0];
-	case 50: return &cpu_lbreg[0];
-	case 51: return &cpu_lcreg[1];
-	case 52: return &cpu_ltreg[1];
-	case 53: return &cpu_lbreg[1];
-	case 54: return &cpu_cycles[0];
-	case 55: return &cpu_cycles[1];
-	case 56: return &cpu_uspreg;
-	case 57: return &cpu_seqstat;
-	case 58: return &cpu_syscfg;
-	case 59: return &cpu_reti;
-	case 60: return &cpu_retx;
-	case 61: return &cpu_retn;
-	case 62: return &cpu_rete;
-//	case 63: return &cpu_EMUDAT_INreg;
+	case 32: return cpu_axreg[0];
+	case 33: return cpu_awreg[0];
+	case 34: return cpu_axreg[1];
+	case 35: return cpu_awreg[1];
+	case 39: return cpu_rets;
+	case 48: return cpu_lcreg[0];
+	case 49: return cpu_ltreg[0];
+	case 50: return cpu_lbreg[0];
+	case 51: return cpu_lcreg[1];
+	case 52: return cpu_ltreg[1];
+	case 53: return cpu_lbreg[1];
+	case 54: return cpu_cycles[0];
+	case 55: return cpu_cycles[1];
+	case 56: return cpu_uspreg;
+	case 57: return cpu_seqstat;
+	case 58: return cpu_syscfg;
+	case 59: return cpu_reti;
+	case 60: return cpu_retx;
+	case 61: return cpu_retn;
+	case 62: return cpu_rete;
+//	case 63: return cpu_EMUDAT_INreg;
 	}
       abort ();
       illegal_instruction (dc);
     }
-  return NULL;
 }
 
 #if 0
@@ -1691,37 +1690,39 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
       CYCLE_DELAY = 5;
 */
     }
-#if 0
   else if (prgfunc == 1 && poprnd == 1)
     {
       TRACE_INSN (cpu, "RTI;");
-      /* Do not do IFETCH_CHECK here -- LSB has special meaning.  */
-      cec_return (cpu, -1);
-      CYCLE_DELAY = 5;
+      cec_require_supervisor (dc);
+//      cec_return (cpu, -1);
+//      CYCLE_DELAY = 5;
     }
   else if (prgfunc == 1 && poprnd == 2)
     {
-      bu32 newpc = RETXREG;
+//      bu32 newpc = RETXREG;
       TRACE_INSN (cpu, "RTX;");
+      cec_require_supervisor (dc);
       /* XXX: Not sure if this is what the hardware does.  */
-      cec_return (cpu, IVG_EVX);
-      CYCLE_DELAY = 5;
+//      cec_return (cpu, IVG_EVX);
+//      CYCLE_DELAY = 5;
     }
   else if (prgfunc == 1 && poprnd == 3)
     {
-      bu32 newpc = RETNREG;
+//      bu32 newpc = RETNREG;
       TRACE_INSN (cpu, "RTN;");
+      cec_require_supervisor (dc);
+//      cec_require_supervisor (dc);
       /* XXX: Not sure if this is what the hardware does.  */
-      cec_return (cpu, IVG_NMI);
-      CYCLE_DELAY = 5;
+//      cec_return (cpu, IVG_NMI);
+//      CYCLE_DELAY = 5;
     }
   else if (prgfunc == 1 && poprnd == 4)
     {
       TRACE_INSN (cpu, "RTE;");
-      cec_return (cpu, IVG_EMU);
-      CYCLE_DELAY = 5;
+      cec_require_supervisor (dc);
+//      cec_return (cpu, IVG_EMU);
+//      CYCLE_DELAY = 5;
     }
-#endif
   else if (prgfunc == 2 && poprnd == 0)
     {
       /* XXX: in supervisor mode, utilizes wake up sources
@@ -1746,19 +1747,19 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
       TRACE_INSN (cpu, "EMUEXCPT;");
       cec_exception (dc, VEC_SIM_TRAP);
     }
-#if 0
   else if (prgfunc == 3 && poprnd < 8)
     {
       TRACE_INSN (cpu, "CLI R%i;", poprnd);
-      SET_DREG (poprnd, cec_cli (cpu));
+//      SET_DREG (poprnd, cec_cli (cpu));
+      cec_require_supervisor (dc);
     }
   else if (prgfunc == 4 && poprnd < 8)
     {
       TRACE_INSN (cpu, "STI R%i;", poprnd);
-      cec_sti (cpu, DREG (poprnd));
-      CYCLE_DELAY = 3;
+//      cec_sti (cpu, DREG (poprnd));
+//      CYCLE_DELAY = 3;
+      cec_require_supervisor (dc);
     }
-#endif
   else if (prgfunc == 5 && poprnd < 8)
     {
 //      bu32 newpc = PREG (poprnd);
@@ -1828,19 +1829,18 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
       CYCLE_DELAY = 5;
 */
     }
-#if 0
   else if (prgfunc == 9)
     {
       int raise = uimm4 (poprnd);
       TRACE_INSN (cpu, "RAISE %s;", uimm4_str (raise));
-      cec_require_supervisor (cpu);
-      if (raise == IVG_IVHW)
-	cec_hwerr (cpu, HWERR_RAISE_5);
-      else
-	cec_latch (cpu, raise);
-      CYCLE_DELAY = 3; /* XXX: Only if IVG is unmasked.  */
+      cec_require_supervisor (dc);
+//      cec_require_supervisor (cpu);
+//      if (raise == IVG_IVHW)
+//	cec_hwerr (cpu, HWERR_RAISE_5);
+//      else
+//	cec_latch (cpu, raise);
+//      CYCLE_DELAY = 3; /* XXX: Only if IVG is unmasked.  */
     }
-#endif
   else if (prgfunc == 10)
     {
       int excpt = uimm4 (poprnd);
@@ -1848,19 +1848,17 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
       cec_exception (dc, excpt);
 //      CYCLE_DELAY = 3;
     }
-#if 0
   else if (prgfunc == 11 && poprnd < 6)
     {
-      bu32 addr = PREG (poprnd);
-      bu8 byte;
+//      bu32 addr = PREG (poprnd);
+//      bu8 byte;
       TRACE_INSN (cpu, "TESTSET (P%i);", poprnd);
-      byte = GET_WORD (addr);
-      SET_CCREG (byte == 0);
-      PUT_BYTE (addr, byte | 0x80);
-      /* Also includes memory stalls, but we don't model that.  */
-      CYCLE_DELAY = 2;
+//      byte = GET_WORD (addr);
+//      SET_CCREG (byte == 0);
+//      PUT_BYTE (addr, byte | 0x80);
+//      /* Also includes memory stalls, but we don't model that.  */
+//      CYCLE_DELAY = 2;
     }
-#endif
   else
     illegal_instruction (dc);
 }
@@ -1924,7 +1922,7 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
   const char *reg_name = get_allreg_name (grp, reg);
 //  bu32 value;
 //  bu32 sp = SPREG;
-  TCGv *treg;
+  TCGv treg;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_PushPopReg);
   TRACE_EXTRACT (cpu, "%s: W:%i grp:%i reg:%i", __func__, W, grp, reg);
@@ -1964,10 +1962,10 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
       else
 	{
 	  treg = get_allreg (dc, grp, reg);
-	  tcg_gen_qemu_ld32u(*treg, cpu_spreg, dc->mem_idx);
+	  tcg_gen_qemu_ld32u(treg, cpu_spreg, dc->mem_idx);
 	}
       tcg_gen_addi_tl(cpu_spreg, cpu_spreg, 4);
-      gen_maybe_lb_exit_tb(dc, treg);
+      gen_maybe_lb_exit_tb(dc, &treg);
     }
   else
     {
@@ -1992,7 +1990,7 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
       else
 	{
 	  treg = get_allreg (dc, grp, reg);
-	  tcg_gen_qemu_st32(*treg, cpu_spreg, dc->mem_idx);
+	  tcg_gen_qemu_st32(treg, cpu_spreg, dc->mem_idx);
 	}
     }
 
@@ -2101,7 +2099,7 @@ decode_ccMV_0 (DisasContext *dc, bu16 iw0)
   int dst = ((iw0 >> CCmv_dst_bits) & CCmv_dst_mask);
 //  int cond = T ? CCREG : ! CCREG;
   int l;
-  TCGv *reg_src, *reg_dst;
+  TCGv reg_src, reg_dst;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_ccMV);
   TRACE_EXTRACT (cpu, "%s: T:%i d:%i s:%i dst:%i src:%i",
@@ -2115,7 +2113,7 @@ decode_ccMV_0 (DisasContext *dc, bu16 iw0)
   reg_dst = get_allreg(dc, d, dst);
   l = gen_new_label();
   tcg_gen_brcondi_tl(TCG_COND_NE, cpu_cc, T, l);
-  tcg_gen_mov_tl(*reg_dst, *reg_src);
+  tcg_gen_mov_tl(reg_dst, reg_src);
   gen_set_label(l);
 //  if (cond)
 //    reg_write (cpu, d, dst, reg_read (cpu, s, src));
@@ -2170,7 +2168,7 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
       SET_ASTATREG (an, diff < 0);
       SET_ASTATREG (ac0, (bu40)acc1 <= (bu40)acc0);
 */
-      illegal_instruction (dc);
+      unhandled_instruction (dc, "CC = A# cmp A#");
     }
   else
     {
@@ -2608,7 +2606,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
   int dst = ((iw0 >> RegMv_dst_bits) & RegMv_dst_mask);
   const char *srcreg_name = get_allreg_name (gs, src);
   const char *dstreg_name = get_allreg_name (gd, dst);
-  TCGv *reg_src, *reg_dst, tmp;
+  TCGv reg_src, reg_dst, tmp;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_REGMV);
   TRACE_EXTRACT (cpu, "%s: gd:%i gs:%i dst:%i src:%i",
@@ -2655,20 +2653,20 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
     {
       tmp = tcg_temp_new();
       gen_helper_astat_load(tmp);
-      reg_src = &tmp;
+      reg_src = tmp;
     }
   else
     reg_src = get_allreg(dc, gs, src);
 
   if (gd == 4 && dst == 6)
     {
-      gen_helper_astat_store(*reg_src);
+      gen_helper_astat_store(reg_src);
     }
   else
     {
       reg_dst = get_allreg(dc, gd, dst);
-      tcg_gen_mov_tl(*reg_dst, *reg_src);
-      gen_maybe_lb_exit_tb(dc, reg_dst);
+      tcg_gen_mov_tl(reg_dst, reg_src);
+      gen_maybe_lb_exit_tb(dc, &reg_dst);
     }
 
   if (gs == 4 && src == 6)
@@ -3305,7 +3303,7 @@ decode_dagMODim_0 (DisasContext *dc, bu16 iw0)
       TRACE_INSN (cpu, "I%i += M%i (BREV);", i, m);
 //      SET_IREG (i, add_brev (IREG (i), MREG (m)));
 //      tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[i]);
-      illegal_instruction (dc);
+      unhandled_instruction (dc, "I# += M# (BREV);");
     }
   else if (op == 0)
     {
@@ -3360,8 +3358,6 @@ decode_dagMODik_0 (DisasContext *dc, bu16 iw0)
 //      dagsub (cpu, i, 4);
       tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 4);
     }
-  else
-    illegal_instruction (dc);
 }
 
 static void
@@ -3738,7 +3734,7 @@ decode_LDSTiiFP_0 (DisasContext *dc, bu16 iw0)
 //  bu32 ea = FPREG + imm;
   const char *imm_str = negimm5s4_str (offset);
   const char *reg_name = get_allreg_name (grp, reg);
-  TCGv *treg = get_allreg (dc, grp, reg);
+  TCGv treg = get_allreg (dc, grp, reg);
   TCGv ea;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDSTiiFP);
@@ -3752,12 +3748,12 @@ decode_LDSTiiFP_0 (DisasContext *dc, bu16 iw0)
     {
       TRACE_INSN (cpu, "%s = [FP + %s];", reg_name, imm_str);
 //      reg_write (cpu, grp, reg, GET_LONG (ea));
-      tcg_gen_qemu_ld32u(*treg, ea, dc->mem_idx);
+      tcg_gen_qemu_ld32u(treg, ea, dc->mem_idx);
     }
   else
     {
       TRACE_INSN (cpu, "[FP + %s] = %s;", imm_str, reg_name);
-      tcg_gen_qemu_st32(*treg, ea, dc->mem_idx);
+      tcg_gen_qemu_st32(treg, ea, dc->mem_idx);
 //      PUT_LONG (ea, reg_read (cpu, grp, reg));
     }
   tcg_temp_free(ea);
@@ -3901,7 +3897,7 @@ decode_LDIMMhalf_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   bu32 val;
   const char *val_str;
   const char *reg_name = get_allreg_name (grp, reg);
-  TCGv *treg = get_allreg (dc, grp, reg);
+  TCGv treg = get_allreg (dc, grp, reg);
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDIMMhalf);
   TRACE_EXTRACT (cpu, "%s: Z:%i H:%i S:%i grp:%i reg:%i hword:%#x",
@@ -3916,26 +3912,26 @@ decode_LDIMMhalf_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
     {
       TRACE_INSN (cpu, "%s = %s (X);", reg_name, val_str);
       /* Take care of immediate sign extension ourselves. */
-      tcg_gen_movi_i32(*treg, (bs16) val);
+      tcg_gen_movi_i32(treg, (bs16) val);
     }
   else if (H == 0 && S == 0 && Z == 1)
     {
       TRACE_INSN (cpu, "%s = %s (Z);", reg_name, val_str);
-      tcg_gen_movi_i32(*treg, val);
+      tcg_gen_movi_i32(treg, val);
     }
   else if (H == 0 && S == 0 && Z == 0)
     {
       TRACE_INSN (cpu, "%s.L = %s;", reg_name, val_str);
       /* XXX: Convert this to a helper.  */
-      tcg_gen_andi_tl(*treg, *treg, 0xffff0000);
-      tcg_gen_ori_tl(*treg, *treg, val);
+      tcg_gen_andi_tl(treg, treg, 0xffff0000);
+      tcg_gen_ori_tl(treg, treg, val);
     }
   else if (H == 1 && S == 0 && Z == 0)
     {
       TRACE_INSN (cpu, "%s.H = %s;", reg_name, val_str);
       /* XXX: Convert this to a helper.  */
-      tcg_gen_andi_tl(*treg, *treg, 0xffff);
-      tcg_gen_ori_tl(*treg, *treg, val << 16);
+      tcg_gen_andi_tl(treg, treg, 0xffff);
+      tcg_gen_ori_tl(treg, treg, val << 16);
     }
   else
     illegal_instruction (dc);
@@ -4682,17 +4678,25 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	       ((s0 >> 24) & 0xff) + ((s0 >> 16) & 0xff) + i) >> 2) & 0xff;
       SET_DREG (dst0, (tmp1 << (16 + (HL * 8))) | (tmp0 << (HL * 8)));
     }
+#endif
   else if ((aop == 0 || aop == 1) && s == 0 && aopcde == 8)
     {
       TRACE_INSN (cpu, "A%i = 0;", aop);
-      SET_AREG (aop, 0);
+//      SET_AREG (aop, 0);
+      tcg_gen_movi_tl(cpu_awreg[aop], 0);
+      tcg_gen_mov_tl(cpu_axreg[aop], cpu_awreg[aop]);
     }
   else if (aop == 2 && s == 0 && aopcde == 8)
     {
       TRACE_INSN (cpu, "A1 = A0 = 0;");
-      SET_AREG (0, 0);
-      SET_AREG (1, 0);
+//      SET_AREG (0, 0);
+//      SET_AREG (1, 0);
+      tcg_gen_movi_tl(cpu_awreg[0], 0);
+      tcg_gen_mov_tl(cpu_axreg[0], cpu_awreg[0]);
+      tcg_gen_mov_tl(cpu_axreg[1], cpu_axreg[0]);
+      tcg_gen_mov_tl(cpu_awreg[1], cpu_awreg[0]);
     }
+#if 0
   else if ((aop == 0 || aop == 1 || aop == 2) && s == 1 && aopcde == 8)
     {
       bs40 acc0 = get_extended_acc (cpu, 0);
@@ -5393,14 +5397,21 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       tcg_gen_mov_tl(cpu_dreg[dst0], tmp);
       tcg_temp_free(tmp);
     }
-#if 0
   else if (aop == 2 && aopcde == 7)
     {
-      bu32 val = DREG (src0);
-      int v;
+//      bu32 val = DREG (src0);
+//      int v;
+      int l;
 
       TRACE_INSN (cpu, "R%i = ABS R%i;", dst0, src0);
 
+      l = gen_new_label();
+      tcg_gen_mov_tl(cpu_dreg[dst0], cpu_dreg[src0]);
+      tcg_gen_brcondi_tl(TCG_COND_GE, cpu_dreg[src0], 0, l);
+      tcg_gen_neg_tl(cpu_dreg[dst0], cpu_dreg[dst0]);
+      gen_set_label(l);
+
+/*
       if (val >> 31)
 	val = -val;
       v = (val == 0x80000000);
@@ -5412,7 +5423,9 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       if (v)
 	SET_ASTATREG (vs, 1);
       setflags_nz (cpu, val);
+*/
     }
+#if 0
   else if (aop == 3 && aopcde == 7)
     {
       bu32 val = DREG (src0);
@@ -5463,12 +5476,12 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
     }
   else if (aop == 1 && aopcde == 6)
     {
-      TRACE_INSN (cpu, "R%i = MIN (R%i, R%i);", dst0, src0, src1);
+      TRACE_INSN (cpu, "R%i = MIN (R%i, R%i) (V);", dst0, src0, src1);
       SET_DREG (dst0, min2x16 (cpu, DREG (src0), DREG (src1)));
     }
   else if (aop == 0 && aopcde == 6)
     {
-      TRACE_INSN (cpu, "R%i = MAX (R%i, R%i);", dst0, src0, src1);
+      TRACE_INSN (cpu, "R%i = MAX (R%i, R%i) (V);", dst0, src0, src1);
       SET_DREG (dst0, max2x16 (cpu, DREG (src0), DREG (src1)));
     }
   else if (aop == 0 && aopcde == 24)
@@ -6544,7 +6557,7 @@ decode_psedodbg_assert_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 //  bu32 val = 0; //reg_read (cpu, grp, regtest);
   const char *reg_name = get_allreg_name (grp, regtest);
   const char *dbg_name, *dbg_appd;
-  TCGv *reg, exp;
+  TCGv reg, exp;
 
   PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_psedodbg_assert);
   TRACE_EXTRACT (cpu, "%s: dbgop:%i grp:%i regtest:%i expected:%#x",
@@ -6570,9 +6583,9 @@ decode_psedodbg_assert_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   exp = tcg_temp_new();
   tcg_gen_movi_tl(exp, expected);
   if (dbgop & 1)
-    gen_helper_dbga_h(*reg, exp);
+    gen_helper_dbga_h(reg, exp);
   else
-    gen_helper_dbga_l(*reg, exp);
+    gen_helper_dbga_l(reg, exp);
   tcg_temp_free(exp);
 /*
   if (actual != expected)

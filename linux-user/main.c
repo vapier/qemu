@@ -2437,6 +2437,10 @@ void cpu_loop(CPUState *env)
             fprintf(stderr, "qemu: memory violation @ %#x\n", env->pc);
             log_target_disas(env->pc, 8, 0);
             exit(1);
+        case EXCP_ILL_SUPV:
+            fprintf(stderr, "qemu: supervisor mode required @ %#x\n", env->pc);
+            log_target_disas(env->pc, 8, 0);
+            exit(1);
         default:
             fprintf(stderr, "qemu: unhandled CPU exception 0x%x - aborting\n",
                     trapnr);
