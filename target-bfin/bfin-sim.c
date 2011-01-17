@@ -27,8 +27,6 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "dv-bfin_cec.h"
-
 /* XXX: kill these typedefs and TRACE_xxx defines */
 typedef uint8_t bu8;
 typedef uint16_t bu16;
@@ -44,13 +42,7 @@ typedef int64_t bs64;
 #define _TRACE_STUB(cpu, fmt, args...) do { if (0) printf (fmt, ## args); } while (0)
 #define TRACE_INSN(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_IN_ASM, fmt "\n", ## args); } while (0)
 #define TRACE_DECODE(...) _TRACE_STUB(__VA_ARGS__)
-#define TRACE_EXTRACT(...) _TRACE_STUB(__VA_ARGS__)
-#define TRACE_CORE(...) _TRACE_STUB(__VA_ARGS__)
-#define TRACE_EVENTS(...) _TRACE_STUB(__VA_ARGS__)
-#define TRACE_BRANCH(...) _TRACE_STUB(__VA_ARGS__)
-#define TRACE_REGISTER(...) _TRACE_STUB(__VA_ARGS__)
-
-#define BFIN_L1_CACHE_BYTES       32
+#define TRACE_EXTRACT(cpu, fmt, args...) do { qemu_log_mask(CPU_LOG_TB_CPU, fmt "\n", ## args); } while (0)
 
 #define M_S2RND 1
 #define M_T     2
@@ -88,14 +80,14 @@ static void
 illegal_instruction (DisasContext *dc)
 {
   TRACE_INSN (cpu, "ILLEGAL INSTRUCTION");
-  cec_exception (dc, VEC_UNDEF_I);
+  cec_exception (dc, EXCP_UNDEF_INST);
 }
 
 static void
 illegal_instruction_combination (DisasContext *dc)
 {
   TRACE_INSN (cpu, "ILLEGAL INSTRUCTION COMBINATION");
-  cec_exception (dc, VEC_ILGAL_I);
+  cec_exception (dc, EXCP_ILL_INST);
 }
 
 static void
@@ -450,67 +442,6 @@ amod0 (int s0, int x0)
   return "";
 }
 
-static const char *
-get_store_name (DisasContext *dc, bu32 *p)
-{
-  if (p >= &DREG (0) && p <= &CYCLESREG)
-    return greg_names[p - &DREG (0)];
-  else if (p == &AXREG (0))
-    return greg_names[4 * 8 + 0];
-  else if (p == &AWREG (0))
-    return greg_names[4 * 8 + 1];
-  else if (p == &AXREG (1))
-    return greg_names[4 * 8 + 2];
-  else if (p == &AWREG (1))
-    return greg_names[4 * 8 + 3];
-  else if (p == &ASTATREG (av0))
-    return "ASTAT[av0]";
-  else if (p == &ASTATREG (av0s))
-    return "ASTAT[av0s]";
-  else if (p == &ASTATREG (av1))
-    return "ASTAT[av1]";
-  else if (p == &ASTATREG (av1s))
-    return "ASTAT[av1s]";
-  else if (p == &ASTATREG (v))
-    return "ASTAT[v]";
-  else if (p == &ASTATREG (vs))
-    return "ASTAT[vs]";
-  else if (p == &ASTATREG (v_copy))
-    return "ASTAT[v_copy]";
-  else if (p == &ASTATREG (az))
-    return "ASTAT[az]";
-  else if (p == &ASTATREG (an))
-    return "ASTAT[an]";
-  else if (p == &ASTATREG (az))
-    return "ASTAT[az]";
-  else if (p == &ASTATREG (ac0))
-    return "ASTAT[ac0]";
-  else if (p == &ASTATREG (ac0_copy))
-    return "ASTAT[ac0_copy]";
-  else
-    {
-      /* Worry about this when we start to STORE() it.  */
-      sim_io_eprintf (CPU_STATE (cpu), "STORE(): unknown register\n");
-      abort ();
-    }
-}
-
-static void
-queue_store (DisasContext *dc, bu32 *addr, bu32 val)
-{
-  struct store *s = &BFIN_CPU_STATE.stores[BFIN_CPU_STATE.n_stores];
-  s->addr = addr;
-  s->val = val;
-  TRACE_REGISTER (cpu, "queuing write %s = %#x",
-		  get_store_name (cpu, addr), val);
-  ++BFIN_CPU_STATE.n_stores;
-}
-#define STORE(X, Y) \
-  do { \
-    if (BFIN_CPU_STATE.n_stores == 20) abort (); \
-    queue_store (cpu, &(X), (Y)); \
-  } while (0)
-
 static void
 setflags_nz (DisasContext *dc, bu32 val)
 {
@@ -526,7 +457,7 @@ setflags_nz_2x16 (DisasContext *dc, bu32 val)
 }
 
 static void
-setflags_logical (DisasContext *dc, bu32 val)
+setflags_logical (DisasContext *dc, TCGv reg)
 {
   setflags_nz (cpu, val);
   SET_ASTATREG (ac0, 0);
@@ -1100,69 +1031,6 @@ xor_reduce (bu64 acc0, bu64 acc1)
     }
   return v;
 }
-
-/* DIVS ( Dreg, Dreg ) ;
- * Initialize for DIVQ. Set the AQ status bit based on the signs of
- * the 32-bit dividend and the 16-bit divisor. Left shift the dividend
- * one bit. Copy AQ into the dividend LSB.
- */
-static bu32
-divs (DisasContext *dc, bu32 pquo, bu16 divisor)
-{
-  bu16 r = pquo >> 16;
-  int aq;
-
-  aq = (r ^ divisor) >> 15;  /* extract msb's and compute quotient bit */
-  SET_ASTATREG (aq, aq);     /* update global quotient state */
-
-  pquo <<= 1;
-  pquo |= aq;
-  pquo = (pquo & 0x1FFFF) | (r << 17);
-  return pquo;
-}
-
-/* DIVQ ( Dreg, Dreg ) ;
- * Based on AQ status bit, either add or subtract the divisor from
- * the dividend. Then set the AQ status bit based on the MSBs of the
- * 32-bit dividend and the 16-bit divisor. Left shift the dividend one
- * bit. Copy the logical inverse of AQ into the dividend LSB.
- */
-static bu32
-divq (DisasContext *dc, bu32 pquo, bu16 divisor)
-{
-  unsigned short af = pquo >> 16;
-  unsigned short r;
-  int aq;
-
-  if (ASTATREG (aq))
-    r = divisor + af;
-  else
-    r = af - divisor;
-
-  aq = (r ^ divisor) >> 15;  /* extract msb's and compute quotient bit */
-  SET_ASTATREG (aq, aq);     /* update global quotient state */
-
-  pquo <<= 1;
-  pquo |= !aq;
-  pquo = (pquo & 0x1FFFF) | (r << 17);
-  return pquo;
-}
-
-/* ONES ( Dreg ) ;
- * Count the number of bits set to 1 in the 32bit value.
- */
-static bu32
-ones (bu32 val)
-{
-  bu32 i;
-  bu32 ret;
-
-  ret = 0;
-  for (i = 0; i < 32; ++i)
-    ret += !!(val & (1 << i));
-
-  return ret;
-}
 #endif
 
 static void
@@ -1638,26 +1506,6 @@ decode_macfunc (DisasContext *dc, int which, int op, int h0, int h1, int src0,
 
   return extract_mult (cpu, acc, mmod, MM, fullword, overflow);
 }
-
-bu32
-hwloop_get_next_pc (DisasContext *dc, bu32 pc, bu32 insn_len)
-{
-  int i;
-
-  if (insn_len == 0)
-    return pc;
-
-  /* If our PC has reached the bottom of a hardware loop,
-     move back up to the top of the hardware loop.  */
-  for (i = 1; i >= 0; --i)
-    if (LCREG (i) > 1 && pc == LBREG (i))
-      {
-	    TRACE_BRANCH (cpu, pc, LTREG (i), i, "Hardware loop %i", i);
-	    return LTREG (i);
-      }
-
-  return pc + insn_len;
-}
 #endif
 
 static void
@@ -1673,109 +1521,109 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   TRACE_EXTRACT (cpu, "%s: poprnd:%i prgfunc:%i", __func__, poprnd, prgfunc);
 
   if (prgfunc == 0 && poprnd == 0)
-    TRACE_INSN (cpu, "NOP;");
+    /* NOP */;
   else if (prgfunc == 1 && poprnd == 0)
     {
-      TRACE_INSN (cpu, "RTS;");
+      /* RTS; */
       dc->is_jmp = DISAS_JUMP;
       dc->hwloop_callback = gen_hwloop_br_direct;
       dc->hwloop_data = &cpu_rets;
     }
   else if (prgfunc == 1 && poprnd == 1)
     {
-      TRACE_INSN (cpu, "RTI;");
+      /* RTI; */
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 1 && poprnd == 2)
     {
-      TRACE_INSN (cpu, "RTX;");
+      /* RTX; */
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 1 && poprnd == 3)
     {
-      TRACE_INSN (cpu, "RTN;");
+      /* RTN; */
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 1 && poprnd == 4)
     {
-      TRACE_INSN (cpu, "RTE;");
+      /* RTE; */
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 2 && poprnd == 0)
     {
+      /* IDLE; */
       /* just NOP it */
-      TRACE_INSN (cpu, "IDLE;");
     }
   else if (prgfunc == 2 && poprnd == 3)
     {
+      /* CSYNC; */
       /* just NOP it */
-      TRACE_INSN (cpu, "CSYNC;");
     }
   else if (prgfunc == 2 && poprnd == 4)
     {
+      /* SSYNC; */
       /* just NOP it */
-      TRACE_INSN (cpu, "SSYNC;");
     }
   else if (prgfunc == 2 && poprnd == 5)
     {
-      TRACE_INSN (cpu, "EMUEXCPT;");
-      cec_exception (dc, VEC_SIM_TRAP);
+      /* EMUEXCPT; */
+      cec_exception (dc, EXCP_DEBUG);
     }
   else if (prgfunc == 3 && poprnd < 8)
     {
-      TRACE_INSN (cpu, "CLI R%i;", poprnd);
+      /* CLI Dreg{poprnd}; */
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 4 && poprnd < 8)
     {
-      TRACE_INSN (cpu, "STI R%i;", poprnd);
+      /* STI Dreg{poprnd}; */
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 5 && poprnd < 8)
     {
-      TRACE_INSN (cpu, "JUMP (P%i);", poprnd);
+      /* JUMP (Preg{poprnd}); */
       dc->is_jmp = DISAS_JUMP;
       dc->hwloop_callback = gen_hwloop_br_direct;
       dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 6 && poprnd < 8)
     {
-      TRACE_INSN (cpu, "CALL (P%i);", poprnd);
+      /* CALL (Preg{poprnd}); */
       dc->is_jmp = DISAS_CALL;
       dc->hwloop_callback = gen_hwloop_br_direct;
       dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 7 && poprnd < 8)
     {
-      TRACE_INSN (cpu, "CALL (PC + P%i);", poprnd);
+      /* CALL (PC + Preg{poprnd}); */
       dc->is_jmp = DISAS_CALL;
       dc->hwloop_callback = gen_hwloop_br_pcrel;
       dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 8 && poprnd < 8)
     {
-      TRACE_INSN (cpu, "JUMP (PC + P%i);", poprnd);
+      /* JUMP (PC + Preg{poprnd}); */
       dc->is_jmp = DISAS_JUMP;
       dc->hwloop_callback = gen_hwloop_br_pcrel;
       dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 9)
     {
-      int raise = uimm4 (poprnd);
-      TRACE_INSN (cpu, "RAISE %s;", uimm4_str (raise));
+      /* RAISE imm{poprnd}; */
+      /* int raise = uimm4 (poprnd); */
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 10)
     {
+      /* EXCPT imm{poprnd}; */
       int excpt = uimm4 (poprnd);
-      TRACE_INSN (cpu, "EXCPT %s;", uimm4_str (excpt));
       cec_exception (dc, excpt);
     }
   else if (prgfunc == 11 && poprnd < 6)
     {
+      /* TESTSET (Preg{poprnd}); */
 //      bu32 addr = PREG (poprnd);
 //      bu8 byte;
-      TRACE_INSN (cpu, "TESTSET (P%i);", poprnd);
 //      byte = GET_WORD (addr);
 //      SET_CCREG (byte == 0);
 //      PUT_BYTE (addr, byte | 0x80);
@@ -1796,39 +1644,24 @@ decode_CaCTRL_0 (DisasContext *dc, bu16 iw0)
   int a   = ((iw0 >> CaCTRL_a_bits) & CaCTRL_a_mask);
   int op  = ((iw0 >> CaCTRL_op_bits) & CaCTRL_op_mask);
   int reg = ((iw0 >> CaCTRL_reg_bits) & CaCTRL_reg_mask);
-//  bu32 preg = PREG (reg);
-  const char * const sinsn[] = { "PREFETCH", "FLUSHINV", "FLUSH", "IFLUSH", };
 
   TRACE_EXTRACT (cpu, "%s: a:%i op:%i reg:%i", __func__, a, op, reg);
-  TRACE_INSN (cpu, "%s [P%i%s];", sinsn[op], reg, a ? "++" : "");
 
-#if 0
-  /* No cache simulation, so these are (mostly) all NOPs.
-     XXX: The hardware takes care of masking to cache lines, but need
-     to check behavior of the post increment.  Should we be aligning
-     the value to the cache line before adding the cache line size, or
-     do we just add the cache line size ?  */
-  if (op == 0)
-    {	/* PREFETCH */
-      mmu_check_cache_addr (cpu, preg, false, false);
-    }
-  else if (op == 1)
-    {	/* FLUSHINV */
-      mmu_check_cache_addr (cpu, preg, true, false);
-    }
-  else if (op == 2)
-    {	/* FLUSH */
-      mmu_check_cache_addr (cpu, preg, true, false);
-    }
-  else if (op == 3)
-    {	/* IFLUSH */
-      mmu_check_cache_addr (cpu, preg, false, true);
-    }
-#endif
+  /*
+   * PREFETCH [Preg{reg}];
+   * PREFETCH [Preg{reg}++{a}];
+   * FLUSHINV [Preg{reg}];
+   * FLUSHINV [Preg{reg}++{a}];
+   * FLUSH [Preg{reg}];
+   * FLUSH [Preg{reg}++{a}];
+   * IFLUSH [Preg{reg}];
+   * IFLUSH [Preg{reg}++{a}];
+   */
+
+  /* No cache simulation, and we'll ignore the implicit CPLB aspects */
 
   if (a)
     tcg_gen_addi_tl(cpu_preg[reg], cpu_preg[reg], BFIN_L1_CACHE_BYTES);
-//    SET_PREG (reg, preg + BFIN_L1_CACHE_BYTES);
 }
 
 static void
@@ -1877,7 +1710,7 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
 	{
 	  TCGv tmp = tcg_temp_new();
 	  tcg_gen_qemu_ld32u(tmp, cpu_spreg, dc->mem_idx);
-	  gen_helper_astat_store(tmp);
+	  gen_astat_store(dc, tmp);
 	  tcg_temp_free(tmp);
 	}
       else
@@ -2096,10 +1929,12 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
       const char *op;
       char d = G ? 'P' : 'R';
 #if 1
-      TCGv *src_reg = G ? &cpu_preg[x] : &cpu_dreg[x];
-      TCGv *dst_reg = G ? &cpu_preg[y] : &cpu_dreg[y];
+      TCGv src_reg = G ? cpu_preg[x] : cpu_dreg[x];
+      TCGv dst_reg = G ? cpu_preg[y] : cpu_dreg[y];
+      TCGv tmp;
       uint32_t dst_imm = issigned ? imm3 (y) : uimm3 (y);
       TCGCond cond;
+      enum astat_ops astat_op;
 
       switch (opc)
 	{
@@ -2125,6 +1960,10 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
 	  cond = TCG_COND_LEU;
 	  break;
 	}
+      if (opc < 3)
+	astat_op = ASTAT_OP_COMPARE_SIGNED;
+      else
+	astat_op = ASTAT_OP_COMPARE_UNSIGNED;
 
       if (I)
 	TRACE_INSN (cpu, "CC = %c%i %s %s%s;", s, x, op,
@@ -2133,9 +1972,18 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
 	TRACE_INSN (cpu, "CC = %c%i %s %c%i%s;", s, x, op, d, y, sign);
 
       if (I)
-	tcg_gen_setcondi_tl(cond, cpu_cc, *src_reg, dst_imm);
-      else
-	tcg_gen_setcond_tl(cond, cpu_cc, *src_reg, *dst_reg);
+	{
+	  tmp = tcg_const_tl(dst_imm);
+	  dst_reg = tmp;
+	}
+      tcg_gen_setcond_tl(cond, cpu_cc, src_reg, dst_reg);
+
+      /* Pointer compares only touch CC.  */
+      if (!G)
+	astat_queue_state2(dc, astat_op, src_reg, dst_reg);
+
+      if (I)
+	tcg_temp_free(tmp);
 #else
       bu32 srcop = G ? PREG (x) : DREG (x);
       bu32 dstop = I ? (issigned ? imm3 (y) : uimm3 (y)) : G ? PREG (y) : DREG (y);
@@ -2283,6 +2131,8 @@ decode_CC2stat_0 (DisasContext *dc, bu16 iw0)
   /* CC = CC; is invalid.  */
   if (cbit == 5)
     illegal_instruction (dc);
+
+  gen_astat_update(dc);
 
 #if 0
   pval = !!(ASTAT & (1 << cbit));
@@ -2473,7 +2323,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
 
   if (gd == 4 && dst == 6)
     {
-      gen_helper_astat_store(reg_src);
+      gen_astat_store(dc, reg_src);
     }
   else
     {
@@ -2535,6 +2385,7 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
       l = gen_new_label();
       tmp = tcg_temp_local_new();
 
+      /* Clip the shift magnitude to 31 bits */
       tcg_gen_mov_tl(tmp, cpu_dreg[src]);
       tcg_gen_brcondi_tl(TCG_COND_LEU, tmp, 31, l);
       tcg_gen_movi_tl(tmp, 0);
@@ -2544,6 +2395,8 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
       tcg_gen_shr_tl(cpu_dreg[dst], cpu_dreg[dst], tmp);
 
       tcg_temp_free(tmp);
+
+      astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT, cpu_dreg[dst]);
     }
   else if (opc == 2)
     {
@@ -2553,6 +2406,7 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
       l = gen_new_label();
       tmp = tcg_temp_local_new();
 
+      /* Clip the shift magnitude to 31 bits */
       tcg_gen_mov_tl(tmp, cpu_dreg[src]);
       tcg_gen_brcondi_tl(TCG_COND_LEU, tmp, 31, l);
       tcg_gen_movi_tl(tmp, 0);
@@ -2561,10 +2415,9 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
 
       tcg_gen_shl_tl(cpu_dreg[dst], cpu_dreg[dst], tmp);
 
-      tcg_gen_setcondi_tl(TCG_COND_EQ, tmp, cpu_dreg[dst], 0);
-      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AZ]));
-
       tcg_temp_free(tmp);
+
+      astat_queue_state1(dc, ASTAT_OP_LSHIFT, cpu_dreg[dst]);
     }
   else if (opc == 3)
     {
@@ -2589,43 +2442,37 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
     }
   else if (opc == 8)
     {
-      TRACE_INSN (cpu, "DIVQ ( R%i, R%i );", dst, src);
-//      SET_DREG (dst, divq (cpu, DREG (dst), (bu16)DREG (src)));
+      /* DIVQ (Dreg, Dreg); */
       gen_helper_divq(cpu_dreg[dst], cpu_dreg[src]);
     }
   else if (opc == 9)
     {
-      TRACE_INSN (cpu, "DIVS ( R%i, R%i );", dst, src);
-//      SET_DREG (dst, divs (cpu, DREG (dst), (bu16)DREG (src)));
+      /* DIVS (Dreg, Dreg); */
       gen_helper_divs(cpu_dreg[dst], cpu_dreg[src]);
     }
   else if (opc == 10)
     {
-      TRACE_INSN (cpu, "R%i = R%i.L (X);", dst, src);
-//      SET_DREG (dst, (bs32) (bs16) DREG (src));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg{dst} = Dreg_lo{src} (X); */
       tcg_gen_ext16s_tl(cpu_dreg[dst], cpu_dreg[src]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 11)
     {
-      TRACE_INSN (cpu, "R%i = R%i.L (Z);", dst, src);
-//      SET_DREG (dst, (bu32) (bu16) DREG (src));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg{dst} = Dreg_lo{src} (Z); */
       tcg_gen_ext16u_tl(cpu_dreg[dst], cpu_dreg[src]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 12)
     {
-      TRACE_INSN (cpu, "R%i = R%i.B (X);", dst, src);
-//      SET_DREG (dst, (bs32) (bs8) DREG (src));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg{dst} = Dreg_byte{src} (X); */
       tcg_gen_ext8s_tl(cpu_dreg[dst], cpu_dreg[src]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 13)
     {
-      TRACE_INSN (cpu, "R%i = R%i.B (Z);", dst, src);
-//      SET_DREG (dst, (bu32) (bu8) DREG (src));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg{dst} = Dreg_byte{src} (Z); */
       tcg_gen_ext8u_tl(cpu_dreg[dst], cpu_dreg[src]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 14)
     {
@@ -2642,10 +2489,9 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
     }
   else if (opc == 15)
     {
-      TRACE_INSN (cpu, "R%i = ~ R%i;", dst, src);
-//      SET_DREG (dst, ~DREG (src));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg = ~Dreg; */
       tcg_gen_not_tl(cpu_dreg[dst], cpu_dreg[src]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else
     illegal_instruction (dc);
@@ -2753,22 +2599,22 @@ decode_LOGI2op_0 (DisasContext *dc, bu16 iw0)
     {
       TRACE_INSN (cpu, "BITSET (R%i, %s);", dst, uimm_str);
 //      SET_DREG (dst, DREG (dst) | (1 << uimm));
-//      setflags_logical (cpu, DREG (dst));
       tcg_gen_ori_tl(cpu_dreg[dst], cpu_dreg[dst], 1 << uimm);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 3)
     {
       TRACE_INSN (cpu, "BITTGL (R%i, %s);", dst, uimm_str);
 //      SET_DREG (dst, DREG (dst) ^ (1 << uimm));
-//      setflags_logical (cpu, DREG (dst));
       tcg_gen_xori_tl(cpu_dreg[dst], cpu_dreg[dst], 1 << uimm);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 4)
     {
       TRACE_INSN (cpu, "BITCLR (R%i, %s);", dst, uimm_str);
 //      SET_DREG (dst, DREG (dst) & ~(1 << uimm));
-//      setflags_logical (cpu, DREG (dst));
       tcg_gen_andi_tl(cpu_dreg[dst], cpu_dreg[dst], ~(1 << uimm));
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 5)
     {
@@ -2781,12 +2627,14 @@ decode_LOGI2op_0 (DisasContext *dc, bu16 iw0)
       TRACE_INSN (cpu, "R%i >>= %s;", dst, uimm_str);
 //      SET_DREG (dst, lshiftrt (cpu, DREG (dst), uimm, 32));
       tcg_gen_shri_tl(cpu_dreg[dst], cpu_dreg[dst], uimm);
+      astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT, cpu_dreg[dst]);
     }
   else if (opc == 7)
     {
       TRACE_INSN (cpu, "R%i <<= %s;", dst, uimm_str);
 //      SET_DREG (dst, lshift (cpu, DREG (dst), uimm, 32, 0));
       tcg_gen_shli_tl(cpu_dreg[dst], cpu_dreg[dst], uimm);
+      astat_queue_state1(dc, ASTAT_OP_LSHIFT, cpu_dreg[dst]);
     }
   else
     illegal_instruction (dc);
@@ -2803,56 +2651,43 @@ decode_COMP3op_0 (DisasContext *dc, bu16 iw0)
   int dst  = ((iw0 >> COMP3op_dst_bits) & COMP3op_dst_mask);
   int src0 = ((iw0 >> COMP3op_src0_bits) & COMP3op_src0_mask);
   int src1 = ((iw0 >> COMP3op_src1_bits) & COMP3op_src1_mask);
-  TCGv tmp;
 
   TRACE_EXTRACT (cpu, "%s: opc:%i dst:%i src1:%i src0:%i",
 		 __func__, opc, dst, src1, src0);
 
   if (opc == 0)
     {
-      TRACE_INSN (cpu, "R%i = R%i + R%i;", dst, src0, src1);
+      /* Dreg{dst} = Dreg{src0} + Dreg{src1}; */
 //      SET_DREG (dst, add32 (cpu, DREG (src0), DREG (src1), 1, 0));
       tcg_gen_add_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
 
-      tmp = tcg_temp_new();
-      tcg_gen_not_tl(tmp, cpu_dreg[src0]);
-      tcg_gen_setcond_tl(TCG_COND_LTU, tmp, tmp, cpu_dreg[src1]);
-      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AC0]));
-      tcg_temp_free(tmp);
+      astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
     }
   else if (opc == 1)
     {
-      TRACE_INSN (cpu, "R%i = R%i - R%i;", dst, src0, src1);
+      /* Dreg{dst} = Dreg{src0} - Dreg{src1}; */
 //      SET_DREG (dst, sub32 (cpu, DREG (src0), DREG (src1), 1, 0, 0));
       tcg_gen_sub_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
 
-      tmp = tcg_temp_new();
-      tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_dreg[src1], cpu_dreg[src0]);
-      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AC0]));
-      tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_dreg[dst], 0x80000000);
-      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AN]));
-      tcg_temp_free(tmp);
+      astat_queue_state3(dc, ASTAT_OP_SUB32, cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
     }
   else if (opc == 2)
     {
-      TRACE_INSN (cpu, "R%i = R%i & R%i;", dst, src0, src1);
-//      SET_DREG (dst, DREG (src0) & DREG (src1));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg{dst} = Dreg{src0} & Dreg{src1}; */
       tcg_gen_and_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 3)
     {
-      TRACE_INSN (cpu, "R%i = R%i | R%i;", dst, src0, src1);
-//      SET_DREG (dst, DREG (src0) | DREG (src1));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg{dst} = Dreg{src0} | Dreg{src1}; */
       tcg_gen_or_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 4)
     {
-      TRACE_INSN (cpu, "R%i = R%i ^ R%i;", dst, src0, src1);
-//      SET_DREG (dst, DREG (src0) ^ DREG (src1));
-//      setflags_logical (cpu, DREG (dst));
+      /* Dreg{dst} = Dreg{src0} ^ Dreg{src1}; */
       tcg_gen_xor_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
   else if (opc == 5)
     {
@@ -2905,10 +2740,8 @@ decode_COMPI2opD_0 (DisasContext *dc, bu16 iw0)
 //      SET_DREG (dst, add32 (cpu, DREG (dst), imm, 1, 0));
       tcg_gen_addi_tl(cpu_dreg[dst], cpu_dreg[dst], imm);
 
-      tmp = tcg_temp_new();
-      tcg_gen_not_tl(tmp, cpu_dreg[dst]);
-      tcg_gen_setcondi_tl(TCG_COND_LTU, tmp, tmp, imm);
-      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AC0]));
+      tmp = tcg_const_tl(imm);
+      astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], cpu_dreg[dst], tmp);
       tcg_temp_free(tmp);
     }
 }
@@ -4941,10 +4774,7 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 //      SET_DREG (dst0, sub32 (cpu, DREG (src0), DREG (src1), 1, s, 0));
       tcg_gen_sub_tl(cpu_dreg[dst0], cpu_dreg[src0], cpu_dreg[src1]);
 
-      tmp = tcg_temp_new();
-      tcg_gen_setcond_tl(TCG_COND_EQ, tmp, cpu_dreg[src0], cpu_dreg[src1]);
-      tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[ASTAT_AZ]));
-      tcg_temp_free(tmp);
+      astat_queue_state3(dc, ASTAT_OP_SUB32, cpu_dreg[dst0], cpu_dreg[src0], cpu_dreg[src1]);
     }
 #if 0
   else if (aop == 2 && aopcde == 4)
@@ -5179,6 +5009,8 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       gen_set_label(l);
       tcg_gen_mov_tl(cpu_dreg[dst0], tmp);
       tcg_temp_free(tmp);
+
+      astat_queue_state1(dc, ASTAT_OP_MIN_MAX, cpu_dreg[dst0]);
     }
   else if (aop == 0 && aopcde == 7)
     {
@@ -5195,6 +5027,8 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       gen_set_label(l);
       tcg_gen_mov_tl(cpu_dreg[dst0], tmp);
       tcg_temp_free(tmp);
+
+      astat_queue_state1(dc, ASTAT_OP_MIN_MAX, cpu_dreg[dst0]);
     }
   else if (aop == 2 && aopcde == 7)
     {
@@ -5204,12 +5038,14 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
       TRACE_INSN (cpu, "R%i = ABS R%i;", dst0, src0);
 
+      /* XXX: Missing saturation support (and ASTAT V/VS) */
       l = gen_new_label();
       tcg_gen_mov_tl(cpu_dreg[dst0], cpu_dreg[src0]);
       tcg_gen_brcondi_tl(TCG_COND_GE, cpu_dreg[src0], 0, l);
       tcg_gen_neg_tl(cpu_dreg[dst0], cpu_dreg[dst0]);
       gen_set_label(l);
 
+      astat_queue_state2(dc, ASTAT_OP_ABS, cpu_dreg[dst0], cpu_dreg[src0]);
 /*
       if (val >> 31)
 	val = -val;
@@ -5913,6 +5749,8 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	}
 
       tcg_temp_free(mask);
+
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst0]);
     }
 /*
   else if (sop == 1 && sopcde == 10)
@@ -6234,9 +6072,15 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	STORE (DREG (dst0), lshiftrt (cpu, DREG (src1), count, 32));
 */
       if (count < 0)
-	tcg_gen_shli_tl(cpu_dreg[dst0], cpu_dreg[src1], -count);
+	{
+	  tcg_gen_shli_tl(cpu_dreg[dst0], cpu_dreg[src1], -count);
+	  astat_queue_state1(dc, ASTAT_OP_LSHIFT, cpu_dreg[dst0]);
+	}
       else
-	tcg_gen_shri_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+	{
+	  tcg_gen_shri_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+	  astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT, cpu_dreg[dst0]);
+	}
     }
   else if (sop == 3 && sopcde == 2)
     {
@@ -6269,6 +6113,7 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	STORE (DREG (dst0), ashiftrt (cpu, DREG (src1), count, 32));
 */
       tcg_gen_sari_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+      astat_queue_state1(dc, ASTAT_OP_LSHIFT, cpu_dreg[dst0]);
     }
   else
     illegal_instruction (dc);
@@ -6296,15 +6141,13 @@ decode_psedoDEBUG_0 (DisasContext *dc, bu16 iw0)
     }
   else if (reg == 3 && fn == 3)
     {
-      TRACE_INSN (cpu, "ABORT;");
-      cec_exception (dc, VEC_SIM_ABORT);
-      //SET_DREG (0, 1);
+      /* ABORT; */
+      cec_exception (dc, EXCP_ABORT);
     }
   else if (reg == 4 && fn == 3)
     {
-      TRACE_INSN (cpu, "HLT;");
-      cec_exception (dc, VEC_SIM_HLT);
-      //SET_DREG (0, 0);
+      /* HLT; */
+      cec_exception (dc, EXCP_HLT);
     }
   else if (reg == 5 && fn == 3)
     unhandled_instruction (dc, "DBGHALT");
@@ -6343,7 +6186,7 @@ decode_psedoOChar_0 (DisasContext *dc, bu16 iw0)
   TCGv tmp;
 
   TRACE_EXTRACT (cpu, "%s: ch:%#x", __func__, ch);
-  TRACE_INSN (cpu, "OUTC %#x;", ch);
+  /* OUTC imm{ch}; */
 
   tmp = tcg_temp_new();
   tcg_gen_movi_tl(tmp, ch);
@@ -6409,10 +6252,9 @@ decode_psedodbg_assert_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 }
 
 /* Interpret a single 16bit/32bit insn; no parallel insn handling */
-static unsigned int
+static void
 _interp_insn_bfin (DisasContext *dc, target_ulong pc)
 {
-  //unsigned int insn_len;
   bu16 iw0, iw1;
 
   iw0 = lduw_code (pc);
@@ -6475,7 +6317,7 @@ _interp_insn_bfin (DisasContext *dc, target_ulong pc)
 	  TRACE_EXTRACT (cpu, "%s: no matching 16-bit pattern", __func__);
 	  illegal_instruction (dc);
 	}
-      return dc->insn_len;
+      return;
     }
 
   /* Grab the next 16 bits to determine if it's a 32-bit or 64-bit opcode.  */
@@ -6495,8 +6337,7 @@ _interp_insn_bfin (DisasContext *dc, target_ulong pc)
   else if (((iw0 & 0xFF80) == 0xE080) && ((iw1 & 0x0C00) == 0x0000))
     decode_LoopSetup_0 (dc, iw0, iw1, pc);
   else if (((iw0 & 0xFF00) == 0xE100) && ((iw1 & 0x0000) == 0x0000))
-    decode_LDIMMhalf_0 (dc, iw0, iw1);
-  else if (((iw0 & 0xFE00) == 0xE200) && ((iw1 & 0x0000) == 0x0000))
+    decode_LDIMMhalf_0 (dc, iw0, iw1);  else if (((iw0 & 0xFE00) == 0xE200) && ((iw1 & 0x0000) == 0x0000))
     decode_CALLa_0 (dc, iw0, iw1, pc);
   else if (((iw0 & 0xFC00) == 0xE400) && ((iw1 & 0x0000) == 0x0000))
     decode_LDSTidxI_0 (dc, iw0, iw1);
@@ -6525,8 +6366,6 @@ _interp_insn_bfin (DisasContext *dc, target_ulong pc)
       TRACE_EXTRACT (cpu, "%s: no matching 32-bit pattern", __func__);
       illegal_instruction (dc);
     }
-
-  return dc->insn_len;
 }
 
 /* Interpret a single Blackfin insn; breaks up parallel insns */

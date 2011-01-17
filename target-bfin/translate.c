@@ -51,7 +51,7 @@ static TCGv cpu_rete;
 static TCGv cpu_emudat;
 static TCGv cpu_pc;
 static TCGv cpu_cc;
-static TCGv cpu_astat_op, cpu_astat_src[2];
+static TCGv cpu_astat_op, cpu_astat_arg[3];
 
 #include "gen-icount.h"
 
@@ -109,10 +109,12 @@ CPUState *cpu_init(const char *cpu_model)
 
 	cpu_astat_op = tcg_global_mem_new(TCG_AREG0,
 		offsetof(CPUState, astat_op), "astat_op");
-	cpu_astat_src[0] = tcg_global_mem_new(TCG_AREG0,
-		offsetof(CPUState, astat_src[0]), "astat_src[0]");
-	cpu_astat_src[1] = tcg_global_mem_new(TCG_AREG0,
-		offsetof(CPUState, astat_src[1]), "astat_src[1]");
+	cpu_astat_arg[0] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, astat_arg[0]), "astat_arg[0]");
+	cpu_astat_arg[1] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, astat_arg[1]), "astat_arg[1]");
+	cpu_astat_arg[2] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, astat_arg[2]), "astat_arg[2]");
 
 	bfin_tcg_new_set(dreg, 0);
 	bfin_tcg_new_set(preg, 8);
@@ -190,14 +192,14 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	            env->rete, env->retn, env->retx);
 	cpu_fprintf(f, "RETI: %08x  RETS: %08x   PC : %08x\n",
 	            env->reti, env->rets, env->pc);
-	cpu_fprintf(f, " R0 : %08x   R1 : %08x   R2 : %08x   R3 : %08x\n",
-	            env->dreg[0], env->dreg[1], env->dreg[2], env->dreg[3]);
-	cpu_fprintf(f, " R4 : %08x   R5 : %08x   R6 : %08x   R7 : %08x\n",
-	            env->dreg[4], env->dreg[5], env->dreg[6], env->dreg[7]);
-	cpu_fprintf(f, " P0 : %08x   P1 : %08x   P2 : %08x   P3 : %08x\n",
-	            env->preg[0], env->preg[1], env->preg[2], env->preg[3]);
-	cpu_fprintf(f, " P4 : %08x   P5 : %08x   FP : %08x   SP : %08x\n",
-	            env->preg[4], env->preg[5], env->fpreg, env->spreg);
+	cpu_fprintf(f, " R0 : %08x   R4 : %08x   P0 : %08x   P4 : %08x\n",
+	            env->dreg[0], env->dreg[4], env->preg[0], env->preg[4]);
+	cpu_fprintf(f, " R1 : %08x   R5 : %08x   P1 : %08x   P5 : %08x\n",
+	            env->dreg[1], env->dreg[5], env->preg[1], env->preg[5]);
+	cpu_fprintf(f, " R2 : %08x   R6 : %08x   P2 : %08x   SP : %08x\n",
+	            env->dreg[2], env->dreg[6], env->preg[2], env->spreg);
+	cpu_fprintf(f, " R3 : %08x   R7 : %08x   P3 : %08x   FP : %08x\n",
+	            env->dreg[3], env->dreg[7], env->preg[3], env->fpreg);
 	cpu_fprintf(f, " LB0: %08x   LT0: %08x   LC0: %08x\n",
 	            env->lbreg[0], env->ltreg[0], env->lcreg[0]);
 	cpu_fprintf(f, " LB1: %08x   LT1: %08x   LC1: %08x\n",
@@ -214,6 +216,8 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	            env->awreg[0], env->axreg[0], env->awreg[1], env->axreg[1]);
 	cpu_fprintf(f, " USP: %08x ASTAT: %08x   CC : %08x\n",
 	            env->uspreg, bfin_astat_read(env), env->astat[ASTAT_CC]);
+	cpu_fprintf(f, "ASTAT_CACHE:   OP: %02u   ARG: %08x %08x %08x\n",
+	            env->astat_op, env->astat_arg[0], env->astat_arg[1], env->astat_arg[2]);
 	cpu_fprintf(f, "              CYCLES: %08x %08x\n",
 	            env->cycles[0], env->cycles[1]);
 
@@ -545,9 +549,168 @@ static void gen_helper_divs(TCGv pquo, TCGv src)
 	_gen_helper_divqs(pquo, r, aq, div);
 }
 
-static void gen_astat_update(void)
+#define _gen_astat_store(bit, reg) tcg_gen_st_tl(reg, cpu_env, offsetof(CPUState, astat[bit]))
+
+static void _gen_astat_update_az(TCGv reg, TCGv tmp)
 {
-	
+	tcg_gen_setcondi_tl(TCG_COND_EQ, tmp, reg, 0);
+	_gen_astat_store(ASTAT_AZ, tmp);
+}
+
+static void _gen_astat_update_nz(TCGv reg, TCGv tmp)
+{
+	_gen_astat_update_az(reg, tmp);
+	tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, reg, 0x80000000);
+	_gen_astat_store(ASTAT_AN, tmp);
+}
+
+static void gen_astat_update(DisasContext *dc)
+{
+	TCGv tmp = tcg_temp_local_new();
+
+	/* XXX: Might not be correct ... */
+	if (dc->astat_op == ASTAT_OP_DYNAMIC)
+		dc->astat_op = dc->env->astat_op;
+
+	switch (dc->astat_op) {
+	case ASTAT_OP_ABS:	/* [0] = ABS( [1] ) */
+		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
+		break;
+
+	case ASTAT_OP_ADD32:	/* [0] = [1] + [2] */
+		tcg_gen_not_tl(tmp, cpu_astat_arg[1]);
+		tcg_gen_setcond_tl(TCG_COND_LTU, tmp, tmp, cpu_astat_arg[2]);
+		_gen_astat_store(ASTAT_AC0, tmp);
+		break;
+
+	case ASTAT_OP_COMPARE_SIGNED: {
+		TCGv flgs, flgo, overflow, flgn, res = tcg_temp_new();
+		tcg_gen_sub_tl(res, cpu_astat_arg[0], cpu_astat_arg[1]);
+		_gen_astat_update_az(res, tmp);
+		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[1], cpu_astat_arg[0]);
+		_gen_astat_store(ASTAT_AC0, tmp);
+		/* XXX: This has got to be simpler ... */
+		/* int flgs = srcop >> 31; */
+		flgs = tcg_temp_new();
+		tcg_gen_shri_tl(flgs, cpu_astat_arg[0], 31);
+		/* int flgo = dstop >> 31; */
+		flgo = tcg_temp_new();
+		tcg_gen_shri_tl(flgo, cpu_astat_arg[1], 31);
+		/* int flgn = result >> 31; */
+		flgn = tcg_temp_new();
+		tcg_gen_shri_tl(flgn, res, 31);
+		/* int overflow = (flgs ^ flgo) & (flgn ^ flgs); */
+		overflow = tcg_temp_new();
+		tcg_gen_xor_tl(tmp, flgs, flgo);
+		tcg_gen_xor_tl(overflow, flgn, flgs);
+		tcg_gen_and_tl(overflow, tmp, overflow);
+		/* an = (flgn && !overflow) || (!flgn && overflow); */
+		tcg_gen_not_tl(tmp, overflow);
+		tcg_gen_and_tl(tmp, flgn, tmp);
+		tcg_gen_not_tl(res, flgn);
+		tcg_gen_and_tl(res, res, overflow);
+		tcg_gen_or_tl(tmp, tmp, res);
+		tcg_temp_free(flgn);
+		tcg_temp_free(overflow);
+		tcg_temp_free(flgo);
+		tcg_temp_free(flgs);
+		tcg_temp_free(res);
+		_gen_astat_store(ASTAT_AN, tmp);
+		break;
+	}
+
+	case ASTAT_OP_COMPARE_UNSIGNED:
+		tcg_gen_sub_tl(tmp, cpu_astat_arg[0], cpu_astat_arg[1]);
+		_gen_astat_update_az(tmp, tmp);
+		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[1], cpu_astat_arg[0]);
+		_gen_astat_store(ASTAT_AC0, tmp);
+		tcg_gen_setcond_tl(TCG_COND_GTU, tmp, cpu_astat_arg[1], cpu_astat_arg[0]);
+		_gen_astat_store(ASTAT_AN, tmp);
+		break;
+
+	case ASTAT_OP_LOGICAL:
+		tcg_gen_movi_tl(tmp, 0);
+		_gen_astat_store(ASTAT_AC0, tmp);
+		_gen_astat_store(ASTAT_V, tmp);
+		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
+		break;
+
+	case ASTAT_OP_LSHIFT:
+		_gen_astat_update_az(cpu_astat_arg[0], tmp);
+		/* XXX: should be checking bit shifted */
+		tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_astat_arg[0], 0x80000000);
+		_gen_astat_store(ASTAT_AN, tmp);
+		/* XXX: Missing V/VS */
+		break;
+
+	case ASTAT_OP_LSHIFT_RT:
+		_gen_astat_update_az(cpu_astat_arg[0], tmp);
+		/* XXX: should be checking bit shifted */
+		tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_astat_arg[0], 0x80000000);
+		_gen_astat_store(ASTAT_AN, tmp);
+		tcg_gen_movi_tl(tmp, 0);
+		_gen_astat_store(ASTAT_V, tmp);
+		break;
+
+	case ASTAT_OP_MIN_MAX:	/* [0] = MAX/MIN( [1], [2] ) */
+		tcg_gen_movi_tl(tmp, 0);
+		_gen_astat_store(ASTAT_V, tmp);
+		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
+		break;
+
+	case ASTAT_OP_SUB32:	/* [0] = [1] - [2] */
+		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[2], cpu_astat_arg[1]);
+		_gen_astat_store(ASTAT_AC0, tmp);
+		tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_astat_arg[0], 0x80000000);
+		_gen_astat_store(ASTAT_AN, tmp);
+		break;
+
+	default:
+		fprintf(stderr, "qemu: unhandled astat op %u\n", dc->astat_op);
+		abort();
+	case ASTAT_OP_DYNAMIC:
+	case ASTAT_OP_NONE:
+		break;
+	}
+
+	tcg_temp_free(tmp);
+
+//	dc->astat_op = ASTAT_OP_DYNAMIC;
+//	tcg_gen_movi_tl(cpu_astat_op, dc->astat_op);
+}
+
+static void
+_astat_queue_state(DisasContext *dc, enum astat_ops op, unsigned int num,
+                   TCGv arg0, TCGv arg1, TCGv arg2)
+{
+	dc->astat_op = op;
+	tcg_gen_movi_tl(cpu_astat_op, dc->astat_op);
+
+	tcg_gen_mov_tl(cpu_astat_arg[0], arg0);
+	if (num > 1)
+		tcg_gen_mov_tl(cpu_astat_arg[1], arg1);
+	else
+		tcg_gen_discard_tl(cpu_astat_arg[1]);
+	if (num > 2)
+		tcg_gen_mov_tl(cpu_astat_arg[2], arg2);
+	else
+		tcg_gen_discard_tl(cpu_astat_arg[2]);
+}
+#define astat_queue_state1(dc, op, arg0)             _astat_queue_state(dc, op, 1, arg0, arg0, arg0)
+#define astat_queue_state2(dc, op, arg0, arg1)       _astat_queue_state(dc, op, 2, arg0, arg1, arg1)
+#define astat_queue_state3(dc, op, arg0, arg1, arg2) _astat_queue_state(dc, op, 3, arg0, arg1, arg2)
+
+static void gen_astat_store(DisasContext *dc, TCGv reg)
+{
+	unsigned int i;
+
+	gen_helper_astat_store(reg);
+
+	dc->astat_op = ASTAT_OP_NONE;
+	tcg_gen_movi_tl(cpu_astat_op, dc->astat_op);
+
+	for (i = 0; i < ARRAY_SIZE(cpu_astat_arg); ++i)
+		tcg_gen_discard_tl(cpu_astat_arg[i]);
 }
 
 static void interp_insn_bfin(DisasContext *dc);
@@ -577,7 +740,7 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 
 	dc->is_jmp = DISAS_NEXT;
 	dc->pc = pc_start;
-	dc->astat_op = ASTAT_OP_UNKNOWN;
+	dc->astat_op = ASTAT_OP_DYNAMIC;
 	dc->hwloop_callback = gen_hwloop_default;
 //	dc->singlestep_enabled = env->singlestep_enabled;
 //	dc->cpustate_changed = 0;

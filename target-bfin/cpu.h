@@ -54,6 +54,8 @@ struct DisasContext;
 #define EXCP_DBGA           0x101
 #define EXCP_OUTC           0x102
 
+#define BFIN_L1_CACHE_BYTES 32
+
 /* Blackfin does 1K/4K/1M/4M, but for now only support 4k */
 #define TARGET_PAGE_BITS 12
 #define NB_MMU_MODES 2
@@ -110,7 +112,7 @@ typedef struct CPUBFINState {
 	/* ASTAT bits; broken up for speeeeeeeed */
 	uint32_t astat[32];
 	/* ASTAT delayed helpers */
-	uint32_t astat_op, astat_src[2];
+	uint32_t astat_op, astat_arg[3];
 } CPUBFINState;
 #define spreg preg[6]
 #define fpreg preg[7]
@@ -134,9 +136,19 @@ static inline void bfin_astat_write(CPUState *env, uint32_t astat)
 }
 
 enum astat_ops {
-	ASTAT_OP_UNKNOWN,
-
-	ASTAT_OP_ADD,
+	ASTAT_OP_NONE,
+	ASTAT_OP_DYNAMIC,
+	ASTAT_OP_ABS,
+	ASTAT_OP_ADD16,
+	ASTAT_OP_ADD32,
+	ASTAT_OP_COMPARE_SIGNED,
+	ASTAT_OP_COMPARE_UNSIGNED,
+	ASTAT_OP_LOGICAL,
+	ASTAT_OP_LSHIFT,
+	ASTAT_OP_LSHIFT_RT,
+	ASTAT_OP_MIN_MAX,
+	ASTAT_OP_SUB16,
+	ASTAT_OP_SUB32,
 };
 
 typedef void (*hwloop_callback)(struct DisasContext *dc, int loop);
@@ -149,10 +161,13 @@ typedef struct DisasContext {
 	/* Length of current insn (2/4/8) */
 	target_ulong insn_len;
 
+	/* For delayed ASTAT handling */
 	enum astat_ops astat_op;
+
+	/* For hardware loop processing */
 	hwloop_callback hwloop_callback;
 	void *hwloop_data;
-	int did_hwloop;
+
 	int is_jmp;
 	int mem_idx;
 } DisasContext;
