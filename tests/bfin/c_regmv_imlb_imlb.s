@@ -923,4 +923,3 @@
 	CHECKREG r7, 0x6FFFFFF0;
 
 	pass
-

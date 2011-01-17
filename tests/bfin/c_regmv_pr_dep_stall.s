@@ -235,4 +235,3 @@
 	CHECKREG fp, 0x46647774;
 
 	pass
-

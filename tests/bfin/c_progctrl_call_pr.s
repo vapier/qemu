@@ -7,9 +7,6 @@
 
 	INIT_R_REGS 0;
 
-
-	A0 = 0;
-	A1 = 0;
 	ASTAT = r0;
 
 	FP = SP;
@@ -33,4 +30,3 @@ SUBR:				// should jump here
 	RTS;
 	R2.L = 0x2222;	// should not go here
 	RTS;
-

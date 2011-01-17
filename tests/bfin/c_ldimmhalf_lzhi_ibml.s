@@ -214,5 +214,3 @@ CHECKREG r7, 0x1000f110;
 
 
 pass
-
-

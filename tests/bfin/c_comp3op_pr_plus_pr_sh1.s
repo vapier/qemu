@@ -300,4 +300,3 @@
 	CHECKREG sp, 0x369D9368;
 
 	pass
-

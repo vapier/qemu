@@ -44,4 +44,3 @@ pass
 SUBR:
  R1.L = 0x1111;
 IF !CC JUMP JBACK;
-

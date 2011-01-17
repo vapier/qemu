@@ -161,4 +161,3 @@
 	CHECKREG fp, 0x00000000;
 
 	pass
-

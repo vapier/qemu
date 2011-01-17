@@ -8,8 +8,6 @@
 
 INIT_R_REGS 0;
 
-A0 = 0;
-A1 = 0;
 ASTAT = r0;
 
 JUMP.S LAB1;
@@ -52,5 +50,3 @@ CHECKREG r6, 0x00000000;
 CHECKREG r7, 0x00000000;
 
 pass
-
-

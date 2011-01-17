@@ -109,4 +109,3 @@
 	CHECKREG fp, 0x2F041405;
 
 	pass
-

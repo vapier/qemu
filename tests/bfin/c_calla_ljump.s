@@ -8,10 +8,6 @@
 
 INIT_R_REGS 0;
 
-A0 = 0;
-A1 = 0;
-ASTAT = r0;
-
 JUMP.L SUBR;
 
 JBACK:
@@ -33,4 +29,3 @@ SUBR:				// should jump here
 	R2.L = 0x2222;		// should not go here
 	JUMP.L JBACK;
 RTS;
-

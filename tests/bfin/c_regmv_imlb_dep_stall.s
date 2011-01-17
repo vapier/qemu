@@ -333,4 +333,3 @@
 	CHECKREG r7, 0x81819998;
 
 	pass
-

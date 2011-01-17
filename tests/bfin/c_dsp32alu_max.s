@@ -259,5 +259,3 @@ CHECKREG r7, 0x789AB799;
 
 
 pass
-
-

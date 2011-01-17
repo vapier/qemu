@@ -165,4 +165,3 @@
 	CHECKREG fp, 0x007085F8;
 
 	pass
-

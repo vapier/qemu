@@ -311,5 +311,3 @@ CHECKREG r6, 0xffffffff;
 CHECKREG r7, 0xffffffff;
 
 pass
-
-

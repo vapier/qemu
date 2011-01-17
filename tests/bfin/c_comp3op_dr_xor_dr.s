@@ -410,5 +410,3 @@ CHECKREG r7, 0x88AB78EF;
 
 
 pass
-
-

@@ -75,4 +75,3 @@
 	DBGA ( R0.L , 0x000e );
 
 	pass
-

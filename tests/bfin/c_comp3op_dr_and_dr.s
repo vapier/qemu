@@ -410,5 +410,3 @@ CHECKREG r7, 0x00200068;
 
 
 pass
-
-

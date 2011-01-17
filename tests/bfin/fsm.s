@@ -55,4 +55,3 @@ L$8:
 	IF CC JUMP L$10 (BP);
 	DBGA ( R0.L , 20 );	DBGA ( R1.L , 140 );
 	pass
-

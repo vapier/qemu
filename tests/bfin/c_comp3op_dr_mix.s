@@ -235,5 +235,3 @@ CHECKREG r7, 0x000e000f;
 
 
 pass
-
-

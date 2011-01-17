@@ -8,8 +8,6 @@
 	FP = SP;
 
 	imm32 r0, 0x00000000;
-	A0 = 0;
-	A1 = 0;
 	ASTAT = r0;
 
 	R0 = 0x01;
@@ -203,4 +201,3 @@
 	CHECKREG r6, 0x00000007;
 	CHECKREG r7, 0x00000008;
 	pass
-

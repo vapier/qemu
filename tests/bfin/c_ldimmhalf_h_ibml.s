@@ -163,4 +163,3 @@
 	CHECKREG r7, 0xf110ffff;
 
 	pass
-

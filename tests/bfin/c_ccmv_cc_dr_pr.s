@@ -59,4 +59,3 @@
 	CHECKREG fp, 0x50487709;
 
 	pass
-

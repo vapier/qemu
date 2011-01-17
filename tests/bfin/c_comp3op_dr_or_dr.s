@@ -410,5 +410,3 @@ CHECKREG r7, 0x9ABFFEFF;
 
 
 pass
-
-

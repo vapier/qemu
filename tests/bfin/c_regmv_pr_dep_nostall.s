@@ -278,4 +278,3 @@
 	CHECKREG r7, 0x23003111;
 
 	pass
-

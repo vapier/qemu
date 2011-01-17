@@ -93,4 +93,3 @@
 	CHECKREG fp, 0x200e100f;
 
 	pass
-

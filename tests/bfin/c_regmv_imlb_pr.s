@@ -300,4 +300,3 @@
 	CHECKREG fp, 0xffffffff;
 
 	pass
-

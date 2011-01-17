@@ -166,5 +166,3 @@ CHECKREG r7, 0x0000f110;
 
 
 pass
-
-

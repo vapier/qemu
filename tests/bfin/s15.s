@@ -41,8 +41,8 @@
 	R7 = EXTRACT( R0, R1.L ) (Z);
 	DBGA ( R7.L , 0 );
 	DBGA ( R7.H , 0 );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x1 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x1 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
 
 	R0.L = 0xfff1;
 	R0.H = 0xffff;
@@ -57,8 +57,8 @@
 	R7 = EXTRACT( R0, R1.L ) (Z);
 	DBGA ( R7.L , 0x0 );
 	DBGA ( R7.H , 0x0 );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x1 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x1 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
 
 	R0.L = 0xfff1;
 	R0.H = 0xffff;
@@ -89,8 +89,8 @@
 	R7 = EXTRACT( R0, R1.L ) (X);
 	DBGA ( R7.L , 0xf4de );
 	DBGA ( R7.H , 0xffff );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x1 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x1 );
 
 	R0.L = 0xdead;
 	R0.H = 0x1234;
@@ -98,8 +98,8 @@
 	R7 = EXTRACT( R0, R1.L ) (X);
 	DBGA ( R7.L , 0x34de );
 	DBGA ( R7.H , 0x0000 );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
 
 	R0.L = 0xdead;
 	R0.H = 0xf234;
@@ -107,8 +107,8 @@
 	R7 = EXTRACT( R0, R1.L ) (X);
 	DBGA ( R7.L , 0xffff );
 	DBGA ( R7.H , 0xffff );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x1 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x1 );
 
 	R0.L = 0xdead;
 	R0.H = 0xf234;
@@ -116,8 +116,8 @@
 	R7 = EXTRACT( R0, R1.L ) (X);
 	DBGA ( R7.L , 0x0001 );
 	DBGA ( R7.H , 0x0000 );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
 
 	R0.L = 0xffff;
 	R0.H = 0xffff;
@@ -125,8 +125,8 @@
 	R7 = EXTRACT( R0, R1.L ) (X);
 	DBGA ( R7.L , 0xffff );
 	DBGA ( R7.H , 0x0000 );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
 
 	R0.L = 0xffff;
 	R0.H = 0xffff;
@@ -134,8 +134,8 @@
 	R7 = EXTRACT( R0, R1.L ) (X);
 	DBGA ( R7.L , 0xffff );
 	DBGA ( R7.H , 0xffff );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x1 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x1 );
 
 	R0.L = 0xffff;
 	R0.H = 0xffff;
@@ -143,8 +143,7 @@
 	R7 = EXTRACT( R0, R1.L ) (X);
 	DBGA ( R7.L , 0 );
 	DBGA ( R7.H , 0 );
-//	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x1 );
-//	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
+	CC = AZ;	R7 = CC; DBGA ( R7.L , 0x1 );
+	CC = AN;	R7 = CC; DBGA ( R7.L , 0x0 );
 
 	pass
-

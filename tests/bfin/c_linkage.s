@@ -58,4 +58,3 @@ DATA:
 
 	.space (0x100);
 KSTACK:
-

@@ -143,4 +143,3 @@ CHECKREG r7, 0x00000020;
 
 
 pass
-

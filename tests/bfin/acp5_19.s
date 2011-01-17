@@ -10,4 +10,3 @@
 	dbga(r0.h, 0x0000);
 	dbga(r0.l, 0x0000);
 	pass;
-

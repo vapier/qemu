@@ -300,4 +300,3 @@
 	CHECKREG sp, 0x5B06A058;
 
 	pass
-

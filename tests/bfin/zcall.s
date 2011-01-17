@@ -42,4 +42,3 @@ _foo:
 	SP += 4;
 	UNLINK;
 	RTS;
-

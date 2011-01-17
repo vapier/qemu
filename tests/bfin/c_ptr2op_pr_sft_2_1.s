@@ -160,4 +160,3 @@
 	CHECKREG fp, 0x803842FC;
 
 	pass
-

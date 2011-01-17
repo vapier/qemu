@@ -662,4 +662,3 @@
 	CHECKREG r7, 0xC871694C;
 
 	pass
-

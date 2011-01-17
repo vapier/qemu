@@ -15,4 +15,3 @@ out1:
 
 	DBGA ( R1.L , 9 );
 	pass
-

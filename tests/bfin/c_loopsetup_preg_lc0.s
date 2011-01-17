@@ -93,4 +93,3 @@ CHECKREG r7, 0x00000048;
 
 
 pass
-

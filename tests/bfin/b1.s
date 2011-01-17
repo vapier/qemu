@@ -10,4 +10,3 @@
 	pass
 LL1:
 	fail
-
