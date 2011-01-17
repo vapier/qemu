@@ -41,7 +41,6 @@ typedef int32_t bs32;
 typedef int64_t bs40;
 typedef int64_t bs64;
 
-#define PROFILE_COUNT_INSN(...)
 #define _TRACE_STUB(cpu, fmt, args...) do { if (0) printf (fmt, ## args); } while (0)
 #define TRACE_INSN(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_IN_ASM, fmt "\n", ## args); } while (0)
 #define TRACE_DECODE(...) _TRACE_STUB(__VA_ARGS__)
@@ -1671,76 +1670,51 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   int poprnd  = ((iw0 >> ProgCtrl_poprnd_bits) & ProgCtrl_poprnd_mask);
   int prgfunc = ((iw0 >> ProgCtrl_prgfunc_bits) & ProgCtrl_prgfunc_mask);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_ProgCtrl);
   TRACE_EXTRACT (cpu, "%s: poprnd:%i prgfunc:%i", __func__, poprnd, prgfunc);
 
   if (prgfunc == 0 && poprnd == 0)
     TRACE_INSN (cpu, "NOP;");
   else if (prgfunc == 1 && poprnd == 0)
     {
-//      bu32 newpc = RETSREG;
       TRACE_INSN (cpu, "RTS;");
-//      TRACE_BRANCH (cpu, pc, newpc, -1, "RTS");
-//      gen_goto_tb(dc, 0, cpu_rets);
       dc->is_jmp = DISAS_JUMP;
-      gen_hwloop_check(dc, gen_hwloop_br_direct, &cpu_rets);
-/*
-      SET_PCREG (newpc);
-      BFIN_CPU_STATE.did_jump = true;
-      CYCLE_DELAY = 5;
-*/
+      dc->hwloop_callback = gen_hwloop_br_direct;
+      dc->hwloop_data = &cpu_rets;
     }
   else if (prgfunc == 1 && poprnd == 1)
     {
       TRACE_INSN (cpu, "RTI;");
       cec_require_supervisor (dc);
-//      cec_return (cpu, -1);
-//      CYCLE_DELAY = 5;
     }
   else if (prgfunc == 1 && poprnd == 2)
     {
-//      bu32 newpc = RETXREG;
       TRACE_INSN (cpu, "RTX;");
       cec_require_supervisor (dc);
-      /* XXX: Not sure if this is what the hardware does.  */
-//      cec_return (cpu, IVG_EVX);
-//      CYCLE_DELAY = 5;
     }
   else if (prgfunc == 1 && poprnd == 3)
     {
-//      bu32 newpc = RETNREG;
       TRACE_INSN (cpu, "RTN;");
       cec_require_supervisor (dc);
-//      cec_require_supervisor (dc);
-      /* XXX: Not sure if this is what the hardware does.  */
-//      cec_return (cpu, IVG_NMI);
-//      CYCLE_DELAY = 5;
     }
   else if (prgfunc == 1 && poprnd == 4)
     {
       TRACE_INSN (cpu, "RTE;");
       cec_require_supervisor (dc);
-//      cec_return (cpu, IVG_EMU);
-//      CYCLE_DELAY = 5;
     }
   else if (prgfunc == 2 && poprnd == 0)
     {
-      /* XXX: in supervisor mode, utilizes wake up sources
-         in user mode, it's a NOP ...  */
+      /* just NOP it */
       TRACE_INSN (cpu, "IDLE;");
     }
   else if (prgfunc == 2 && poprnd == 3)
     {
       /* just NOP it */
       TRACE_INSN (cpu, "CSYNC;");
-//      CYCLE_DELAY = 10;
     }
   else if (prgfunc == 2 && poprnd == 4)
     {
       /* just NOP it */
       TRACE_INSN (cpu, "SSYNC;");
-      /* Really 10+, but no model info for this.  */
-//      CYCLE_DELAY = 10;
     }
   else if (prgfunc == 2 && poprnd == 5)
     {
@@ -1750,103 +1724,52 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   else if (prgfunc == 3 && poprnd < 8)
     {
       TRACE_INSN (cpu, "CLI R%i;", poprnd);
-//      SET_DREG (poprnd, cec_cli (cpu));
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 4 && poprnd < 8)
     {
       TRACE_INSN (cpu, "STI R%i;", poprnd);
-//      cec_sti (cpu, DREG (poprnd));
-//      CYCLE_DELAY = 3;
       cec_require_supervisor (dc);
     }
   else if (prgfunc == 5 && poprnd < 8)
     {
-//      bu32 newpc = PREG (poprnd);
       TRACE_INSN (cpu, "JUMP (P%i);", poprnd);
       dc->is_jmp = DISAS_JUMP;
-      gen_hwloop_check(dc, gen_hwloop_br_direct, &cpu_preg[poprnd]);
-//      gen_maybe_lb_check(dc);
-//      gen_goto_tb(dc, 0, cpu_preg[poprnd]);
-/*
-      TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP (Preg)");
-      SET_PCREG (newpc);
-      BFIN_CPU_STATE.did_jump = true;
-      PROFILE_BRANCH_TAKEN (cpu);
-      CYCLE_DELAY = 5;
-*/
+      dc->hwloop_callback = gen_hwloop_br_direct;
+      dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 6 && poprnd < 8)
     {
-//      bu32 newpc = PREG (poprnd);
       TRACE_INSN (cpu, "CALL (P%i);", poprnd);
       dc->is_jmp = DISAS_CALL;
-//      gen_maybe_lb_check(dc);
-//      gen_goto_tb(dc, 0, cpu_preg[poprnd]);
-      gen_hwloop_check(dc, gen_hwloop_br_direct, &cpu_preg[poprnd]);
-#if 0
-      TRACE_BRANCH (cpu, pc, newpc, -1, "CALL (Preg)");
-      /* If we're at the end of a hardware loop, RETS is going to be
-         the top of the loop rather than the next instruction.  */
-      SET_RETSREG (hwloop_get_next_pc (cpu, pc, 2));
-      SET_PCREG (newpc);
-      BFIN_CPU_STATE.did_jump = true;
-      PROFILE_BRANCH_TAKEN (cpu);
-      CYCLE_DELAY = 5;
-#endif
+      dc->hwloop_callback = gen_hwloop_br_direct;
+      dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 7 && poprnd < 8)
     {
-//      bu32 newpc = pc + PREG (poprnd);
       TRACE_INSN (cpu, "CALL (PC + P%i);", poprnd);
-//      tcg_gen_movi_tl(cpu_rets, dc->pc + 2);
-//      tcg_gen_addi_tl(cpu_pc, cpu_preg[poprnd], dc->pc);
-//      gen_goto_tb(dc, 0, cpu_pc);
       dc->is_jmp = DISAS_CALL;
-      gen_hwloop_check(dc, gen_hwloop_br_pcrel, &cpu_preg[poprnd]);
-/*
-      TRACE_BRANCH (cpu, pc, newpc, -1, "CALL (PC + Preg)");
-      SET_RETSREG (hwloop_get_next_pc (cpu, pc, 2));
-      SET_PCREG (newpc);
-      BFIN_CPU_STATE.did_jump = true;
-      PROFILE_BRANCH_TAKEN (cpu);
-      CYCLE_DELAY = 5;
-*/
+      dc->hwloop_callback = gen_hwloop_br_pcrel;
+      dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 8 && poprnd < 8)
     {
-//      bu32 newpc = pc + PREG (poprnd);
       TRACE_INSN (cpu, "JUMP (PC + P%i);", poprnd);
-//      tcg_gen_addi_tl(cpu_pc, cpu_preg[poprnd], dc->pc);
-//      gen_goto_tb(dc, 0, cpu_pc);
       dc->is_jmp = DISAS_JUMP;
-      gen_hwloop_check(dc, gen_hwloop_br_pcrel, &cpu_preg[poprnd]);
-/*
-      TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP (PC + Preg)");
-      SET_PCREG (newpc);
-      BFIN_CPU_STATE.did_jump = true;
-      PROFILE_BRANCH_TAKEN (cpu);
-      CYCLE_DELAY = 5;
-*/
+      dc->hwloop_callback = gen_hwloop_br_pcrel;
+      dc->hwloop_data = &cpu_preg[poprnd];
     }
   else if (prgfunc == 9)
     {
       int raise = uimm4 (poprnd);
       TRACE_INSN (cpu, "RAISE %s;", uimm4_str (raise));
       cec_require_supervisor (dc);
-//      cec_require_supervisor (cpu);
-//      if (raise == IVG_IVHW)
-//	cec_hwerr (cpu, HWERR_RAISE_5);
-//      else
-//	cec_latch (cpu, raise);
-//      CYCLE_DELAY = 3; /* XXX: Only if IVG is unmasked.  */
     }
   else if (prgfunc == 10)
     {
       int excpt = uimm4 (poprnd);
       TRACE_INSN (cpu, "EXCPT %s;", uimm4_str (excpt));
       cec_exception (dc, excpt);
-//      CYCLE_DELAY = 3;
     }
   else if (prgfunc == 11 && poprnd < 6)
     {
@@ -1876,7 +1799,6 @@ decode_CaCTRL_0 (DisasContext *dc, bu16 iw0)
 //  bu32 preg = PREG (reg);
   const char * const sinsn[] = { "PREFETCH", "FLUSHINV", "FLUSH", "IFLUSH", };
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_CaCTRL);
   TRACE_EXTRACT (cpu, "%s: a:%i op:%i reg:%i", __func__, a, op, reg);
   TRACE_INSN (cpu, "%s [P%i%s];", sinsn[op], reg, a ? "++" : "");
 
@@ -1924,7 +1846,6 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
 //  bu32 sp = SPREG;
   TCGv treg;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_PushPopReg);
   TRACE_EXTRACT (cpu, "%s: W:%i grp:%i reg:%i", __func__, W, grp, reg);
   TRACE_DECODE (cpu, "%s: reg:%s", __func__, reg_name);
 
@@ -2014,7 +1935,6 @@ decode_PushPopMultiple_0 (DisasContext *dc, bu16 iw0)
   int i;
 //  bu32 sp = SPREG;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_PushPopMultiple);
   TRACE_EXTRACT (cpu, "%s: d:%i p:%i W:%i dr:%i pr:%i",
 		 __func__, d, p, W, dr, pr);
 
@@ -2101,7 +2021,6 @@ decode_ccMV_0 (DisasContext *dc, bu16 iw0)
   int l;
   TCGv reg_src, reg_dst;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_ccMV);
   TRACE_EXTRACT (cpu, "%s: T:%i d:%i s:%i dst:%i src:%i",
 		 __func__, T, d, s, dst, src);
 
@@ -2132,7 +2051,6 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
   int G = ((iw0 >> CCflag_G_bits) & CCflag_G_mask);
   int opc = ((iw0 >> CCflag_opc_bits) & CCflag_opc_mask);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_CCflag);
   TRACE_EXTRACT (cpu, "%s: I:%i opc:%i G:%i y:%i x:%i",
 		 __func__, I, opc, G, y, x);
 
@@ -2292,7 +2210,6 @@ decode_CC2dreg_0 (DisasContext *dc, bu16 iw0)
   int op  = ((iw0 >> CC2dreg_op_bits) & CC2dreg_op_mask);
   int reg = ((iw0 >> CC2dreg_reg_bits) & CC2dreg_reg_mask);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_CC2dreg);
   TRACE_EXTRACT (cpu, "%s: op:%i reg:%i", __func__, op, reg);
 
   if (op == 0)
@@ -2358,7 +2275,6 @@ decode_CC2stat_0 (DisasContext *dc, bu16 iw0)
       astat_name = astat_bit;
     }
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_CC2stat);
   TRACE_EXTRACT (cpu, "%s: D:%i op:%i cbit:%i", __func__, D, op, cbit);
 
   TRACE_INSN (cpu, "%s %s= %s;", D ? astat_name : "CC",
@@ -2459,99 +2375,16 @@ decode_BRCC_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   int B = ((iw0 >> BRCC_B_bits) & BRCC_B_mask);
   int T = ((iw0 >> BRCC_T_bits) & BRCC_T_mask);
   int offset = ((iw0 >> BRCC_offset_bits) & BRCC_offset_mask);
-//  int cond = T ? CCREG : ! CCREG;
   int pcrel = pcrel10 (offset);
-//  int l;
-//  int hwloop;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_BRCC);
   TRACE_EXTRACT (cpu, "%s: T:%i B:%i offset:%#x", __func__, T, B, offset);
   TRACE_DECODE (cpu, "%s: pcrel10:%#x", __func__, pcrel);
 
   TRACE_INSN (cpu, "IF %sCC JUMP %#x%s;", T ? "" : "! ",
 	      pcrel, B ? " (bp)" : "");
 
-#if 0
-  l = gen_new_label();
-  tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_cc, T, l);
-  tcg_gen_goto_tb(0);
-  tcg_gen_movi_tl(cpu_pc, dc->pc + dc->insn_len);
-  tcg_gen_exit_tb(0); //(long)dc->tb);
-  gen_set_label(l);
-  tcg_gen_goto_tb(0); //1);
-  tcg_gen_movi_tl(cpu_pc, dc->pc + pcrel);
-  tcg_gen_exit_tb(0); //(long)dc->tb + 1);
-#else
-//  dc->is_jmp = DISAS_JUMP;
-  gen_hwloop_check(dc, gen_hwloop_br_pcrel_cc, (void *)(unsigned long)(pcrel | T));
-#if 0
-//  hwloop = gen_maybe_lb_check(dc);
-  l = gen_new_label();
-  tcg_gen_brcondi_tl(TCG_COND_NE, cpu_cc, T, l);
-//  dc->insn_len = dc->pc + pcrel;
-//  if (!gen_maybe_lb_check(dc))
-    gen_gotoi_tb(dc, 0, dc->pc + pcrel);
-//  dc->is_jmp = 0;
-#if 0
-  tcg_gen_goto_tb(0); //1);
-  tcg_gen_movi_tl(cpu_pc, dc->pc + pcrel);
-  tcg_gen_exit_tb(0); //(long)dc->tb + 1);
-#endif
-  gen_set_label(l);
-  if (hwloop & 0x2)
-#endif
-#endif
-
-/*
- movi_i32 cc_op,$0x11
- add_i64 tmp8,cc_dst,cc_src
- brcond_i64 tmp8,cc_src,lt,$0x0
- goto_tb $0x0
- movi_i64 tmp4,$0x4000ce
- st_i64 tmp4,env,$0x80
- exit_tb $0x7f90244cd010
- set_label $0x0
- goto_tb $0x1
- movi_i64 tmp4,$0x4000c5
- st_i64 tmp4,env,$0x80
- exit_tb $0x7f90244cd011
-
- movi_i32 cc_op,$0x11
- add_i64 tmp8,cc_dst,cc_src
- brcond_i64 tmp8,cc_src,lt,$0x0
- goto_tb $0x0
- movi_i64 tmp4,$0x4000ce
- st_i64 tmp4,env,$0x80
- exit_tb $0x7f90244cd088
- set_label $0x0
- goto_tb $0x1
- movi_i64 tmp4,$0x4000c5
- st_i64 tmp4,env,$0x80
- exit_tb $0x7f90244cd089
-*/
-//  tcg_gen_movi_tl(cpu_pc, dc->pc + pcrel);
-//  gen_goto_tb(dc, 0, dc->pc + pcrel);
-  //tcg_gen_exit_tb(0);
-//  gen_set_label(l);
-  //tcg_gen_movi_tl(cpu_pc, dc->pc + 2);
-  //tcg_gen_goto_tb(0);
-//  dc->is_jmp = DISAS_TB_JUMP;
-/*
-  if (cond)
-    {
-      bu32 newpc = pc + pcrel;
-      TRACE_BRANCH (cpu, pc, newpc, -1, "Conditional JUMP");
-      SET_PCREG (newpc);
-      BFIN_CPU_STATE.did_jump = true;
-      PROFILE_BRANCH_TAKEN (cpu);
-      CYCLE_DELAY = B ? 5 : 9;
-    }
-  else
-    {
-      PROFILE_BRANCH_UNTAKEN (cpu);
-      CYCLE_DELAY = B ? 9 : 1;
-    }
-*/
+  dc->hwloop_callback = gen_hwloop_br_pcrel_cc;
+  dc->hwloop_data = (void *)(unsigned long)(pcrel | T);
 }
 
 static void
@@ -2563,34 +2396,15 @@ decode_UJUMP_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
   int offset = ((iw0 >> UJump_offset_bits) & UJump_offset_mask);
   int pcrel = pcrel12 (offset);
-  TCGv tmp;
-//  bu32 newpc = dc->pc + pcrel;
-//  int l;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_UJUMP);
   TRACE_EXTRACT (cpu, "%s: offset:%#x", __func__, offset);
   TRACE_DECODE (cpu, "%s: pcrel12:%#x", __func__, pcrel);
 
   TRACE_INSN (cpu, "JUMP.S %#x;", pcrel);
 
-//  l = gen_new_label();
-//  gen_gotoi_tb(dc, 0, newpc);
-//  tcg_gen_br(l);
-//  gen_set_label(l);
-
   dc->is_jmp = DISAS_JUMP;
-  tmp = tcg_const_tl(pcrel);
-  gen_hwloop_check(dc, gen_hwloop_br_pcrel, &tmp);
-  tcg_temp_free(tmp);
-
-//  TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP.S");
-
-/*
-  SET_PCREG (newpc);
-  BFIN_CPU_STATE.did_jump = true;
-  PROFILE_BRANCH_TAKEN (cpu);
-  CYCLE_DELAY = 5;
-*/
+  dc->hwloop_callback = gen_hwloop_br_pcrel_imm;
+  dc->hwloop_data = (void *)(unsigned long)pcrel;
 }
 
 static void
@@ -2608,7 +2422,6 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
   const char *dstreg_name = get_allreg_name (gd, dst);
   TCGv reg_src, reg_dst, tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_REGMV);
   TRACE_EXTRACT (cpu, "%s: gd:%i gs:%i dst:%i src:%i",
 		 __func__, gd, gs, dst, src);
   TRACE_DECODE (cpu, "%s: dst:%s src:%s", __func__, dstreg_name, srcreg_name);
@@ -2698,7 +2511,6 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
   int l;
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_ALU2op);
   TRACE_EXTRACT (cpu, "%s: opc:%i src:%i dst:%i", __func__, opc, src, dst);
 
   if (opc == 0)
@@ -2850,7 +2662,6 @@ decode_PTR2op_0 (DisasContext *dc, bu16 iw0)
   int opc = ((iw0 >> PTR2op_opc_bits) & PTR2op_opc_mask);
   int dst = ((iw0 >> PTR2op_dst_bits) & PTR2op_dst_mask);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_PTR2op);
   TRACE_EXTRACT (cpu, "%s: opc:%i src:%i dst:%i", __func__, opc, src, dst);
 
   if (opc == 0)
@@ -2915,7 +2726,6 @@ decode_LOGI2op_0 (DisasContext *dc, bu16 iw0)
   const char *uimm_str = uimm5_str (uimm);
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LOGI2op);
   TRACE_EXTRACT (cpu, "%s: opc:%i src:%i dst:%i", __func__, opc, src, dst);
   TRACE_DECODE (cpu, "%s: uimm5:%#x", __func__, uimm);
 
@@ -2995,7 +2805,6 @@ decode_COMP3op_0 (DisasContext *dc, bu16 iw0)
   int src1 = ((iw0 >> COMP3op_src1_bits) & COMP3op_src1_mask);
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_COMP3op);
   TRACE_EXTRACT (cpu, "%s: opc:%i dst:%i src1:%i src0:%i",
 		 __func__, opc, dst, src1, src0);
 
@@ -3082,7 +2891,6 @@ decode_COMPI2opD_0 (DisasContext *dc, bu16 iw0)
   int imm = imm7 (src);
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_COMPI2opD);
   TRACE_EXTRACT (cpu, "%s: op:%i src:%i dst:%i", __func__, op, src, dst);
   TRACE_DECODE (cpu, "%s: imm7:%#x", __func__, imm);
 
@@ -3117,7 +2925,6 @@ decode_COMPI2opP_0 (DisasContext *dc, bu16 iw0)
   int dst = ((iw0 >> COMPI2opP_dst_bits) & COMPI2opP_dst_mask);
   int imm = imm7 (src);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_COMPI2opP);
   TRACE_EXTRACT (cpu, "%s: op:%i src:%i dst:%i", __func__, op, src, dst);
   TRACE_DECODE (cpu, "%s: imm:%#x", __func__, imm);
 
@@ -3148,7 +2955,6 @@ decode_LDSTpmod_0 (DisasContext *dc, bu16 iw0)
   TCGv tmp;
 //  bu32 addr, val;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDSTpmod);
   TRACE_EXTRACT (cpu, "%s: W:%i aop:%i reg:%i idx:%i ptr:%i",
 		 __func__, W, aop, reg, idx, ptr);
 
@@ -3316,7 +3122,6 @@ decode_dagMODim_0 (DisasContext *dc, bu16 iw0)
   int br = ((iw0 >> DagMODim_br_bits) & DagMODim_br_mask);
   int op = ((iw0 >> DagMODim_op_bits) & DagMODim_op_mask);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dagMODim);
   TRACE_EXTRACT (cpu, "%s: br:%i op:%i m:%i i:%i", __func__, br, op, m, i);
 
   if (op == 0 && br == 1)
@@ -3352,7 +3157,6 @@ decode_dagMODik_0 (DisasContext *dc, bu16 iw0)
   int i  = ((iw0 >> DagMODik_i_bits) & DagMODik_i_mask);
   int op = ((iw0 >> DagMODik_op_bits) & DagMODik_op_mask);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dagMODik);
   TRACE_EXTRACT (cpu, "%s: op:%i i:%i", __func__, op, i);
 
   if (op == 0)
@@ -3396,7 +3200,6 @@ decode_dspLDST_0 (DisasContext *dc, bu16 iw0)
 //  bu32 addr;
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dspLDST);
   TRACE_EXTRACT (cpu, "%s: aop:%i m:%i i:%i reg:%i", __func__, aop, m, i, reg);
 
   if (aop == 0 && W == 0 && m == 0)
@@ -3662,7 +3465,6 @@ decode_LDST_0 (DisasContext *dc, bu16 iw0)
   const char * const posts[] = { "++", "--", "" };
   const char *post = posts[aop];
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDST);
   TRACE_EXTRACT (cpu, "%s: sz:%i W:%i aop:%i Z:%i ptr:%i reg:%i",
 		 __func__, sz, W, aop, Z, ptr, reg);
 
@@ -3758,7 +3560,6 @@ decode_LDSTiiFP_0 (DisasContext *dc, bu16 iw0)
   TCGv treg = get_allreg (dc, grp, reg);
   TCGv ea;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDSTiiFP);
   TRACE_EXTRACT (cpu, "%s: W:%i offset:%#x grp:%i reg:%i", __func__,
 		 W, offset, grp, reg);
   TRACE_DECODE (cpu, "%s: negimm5s4:%#x", __func__, imm);
@@ -3796,7 +3597,6 @@ decode_LDSTii_0 (DisasContext *dc, bu16 iw0)
   const char *imm_str;
   TCGv ea;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDSTii);
   TRACE_EXTRACT (cpu, "%s: W:%i op:%i offset:%#x ptr:%i reg:%i",
 		 __func__, W, op, offset, ptr, reg);
 
@@ -3873,7 +3673,6 @@ decode_LoopSetup_0 (DisasContext *dc, bu16 iw0, bu16 iw1, target_ulong pc)
   int spcrel = pcrel4 (soffset);
   int epcrel = lppcrel10 (eoffset);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LoopSetup);
   TRACE_EXTRACT (cpu, "%s: rop:%i c:%i soffset:%i reg:%i eoffset:%i",
 		 __func__, rop, c, soffset, reg, eoffset);
   TRACE_DECODE (cpu, "%s: s_pcrel4:%#x e_lppcrel10:%#x",
@@ -3920,7 +3719,6 @@ decode_LDIMMhalf_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   const char *reg_name = get_allreg_name (grp, reg);
   TCGv treg = get_allreg (dc, grp, reg);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDIMMhalf);
   TRACE_EXTRACT (cpu, "%s: Z:%i H:%i S:%i grp:%i reg:%i hword:%#x",
 		 __func__, Z, H, S, grp, reg, hword);
 
@@ -3970,38 +3768,18 @@ decode_CALLa_0 (DisasContext *dc, bu16 iw0, bu16 iw1, target_ulong pc)
   int lsw = ((iw1 >> 0) & 0xffff);
   int msw = ((iw0 >> 0) & 0xff);
   int pcrel = pcrel24 ((msw << 16) | lsw);
-//  bu32 newpc = dc->pc + pcrel;
-  TCGv tmp;
 
-//  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_CALLa);
   TRACE_EXTRACT (cpu, "%s: S:%i msw:%#x lsw:%#x", __func__, S, msw, lsw);
   TRACE_DECODE (cpu, "%s: pcrel24:%#x", __func__, pcrel);
 
   TRACE_INSN (cpu, "%s %#x;", S ? "CALL" : "JUMP.L", pcrel);
 
   if (S == 1)
-    {
-//      TRACE_BRANCH (cpu, pc, newpc, -1, "CALL");
-//      SET_RETSREG (hwloop_get_next_pc (cpu, pc, 4));
-//      tcg_gen_movi_tl(cpu_rets, dc->pc + 4);
-      dc->is_jmp = DISAS_CALL;
-    }
+    dc->is_jmp = DISAS_CALL;
   else
-    {
-//    TRACE_BRANCH (cpu, pc, newpc, -1, "JUMP.L");
-      dc->is_jmp = DISAS_JUMP;
-//      gen_gotoi_tb(dc, 0, newpc);
-    }
-  tmp = tcg_const_tl(pcrel);
-  gen_hwloop_check(dc, gen_hwloop_br_pcrel, &tmp);
-  tcg_temp_free(tmp);
-
-/*
-  SET_PCREG (newpc);
-  BFIN_CPU_STATE.did_jump = true;
-  PROFILE_BRANCH_TAKEN (cpu);
-  CYCLE_DELAY = 5;
-*/
+    dc->is_jmp = DISAS_JUMP;
+  dc->hwloop_callback = gen_hwloop_br_pcrel_imm;
+  dc->hwloop_data = (void *)(unsigned long)pcrel;
 }
 
 static void
@@ -4026,7 +3804,6 @@ decode_LDSTidxI_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   const char *imm_16_str = imm16_str (offset);
   TCGv ea;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_LDSTidxI);
   TRACE_EXTRACT (cpu, "%s: W:%i Z:%i sz:%i ptr:%i reg:%i offset:%#x",
 		 __func__, W, Z, sz, ptr, reg, offset);
 
@@ -4126,7 +3903,6 @@ decode_linkage_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   int framesize = ((iw1 >> Linkage_framesize_bits) & Linkage_framesize_mask);
 //  bu32 sp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_linkage);
   TRACE_EXTRACT (cpu, "%s: R:%i framesize:%#x", __func__, R, framesize);
 
   if (R == 0)
@@ -4203,7 +3979,6 @@ decode_dsp32mac_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   bu32 res = DREG (dst);
   bu32 v_i = 0, zero = 0;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32mac);
   TRACE_EXTRACT (cpu, "%s: M:%i mmod:%i MM:%i P:%i w1:%i op1:%i h01:%i h11:%i "
 		      "w0:%i op0:%i h00:%i h10:%i dst:%i src0:%i src1:%i",
 		 __func__, M, mmod, MM, P, w1, op1, h01, h11, w0, op0, h00, h10,
@@ -4319,7 +4094,6 @@ decode_dsp32mult_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   bu32 res = DREG (dst);
   bu32 sat0 = 0, sat1 = 0;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32mult);
   TRACE_EXTRACT (cpu, "%s: M:%i mmod:%i MM:%i P:%i w1:%i op1:%i h01:%i h11:%i "
 		      "w0:%i op0:%i h00:%i h10:%i dst:%i src0:%i src1:%i",
 		 __func__, M, mmod, MM, P, w1, op1, h01, h11, w0, op0, h00, h10,
@@ -4414,7 +4188,6 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   int aopcde = ((iw0 >> (DSP32Alu_aopcde_bits - 16)) & DSP32Alu_aopcde_mask);
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32alu);
   TRACE_EXTRACT (cpu, "%s: M:%i HL:%i aopcde:%i aop:%i s:%i x:%i dst0:%i "
 		      "dst1:%i src0:%i src1:%i",
 		 __func__, M, HL, aopcde, aop, s, x, dst0, dst1, src0, src1);
@@ -5615,7 +5388,6 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   int M = ((iw0 >> (DSP32Shift_M_bits - 16)) & DSP32Shift_M_mask);
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32shift);
   TRACE_EXTRACT (cpu, "%s: M:%i sopcde:%i sop:%i HLs:%i dst0:%i src0:%i src1:%i",
 		 __func__, M, sopcde, sop, HLs, dst0, src0, src1);
 
@@ -6263,7 +6035,6 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   int HLs      = ((iw1 >> DSP32ShiftImm_HLs_bits) & DSP32ShiftImm_HLs_mask);
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32shiftimm);
   TRACE_EXTRACT (cpu, "%s: M:%i sopcde:%i sop:%i HLs:%i dst0:%i immag:%#x src1:%i",
 		 __func__, M, sopcde, sop, HLs, dst0, immag, src1);
 
@@ -6515,7 +6286,6 @@ decode_psedoDEBUG_0 (DisasContext *dc, bu16 iw0)
   int grp = ((iw0 >> PseudoDbg_grp_bits) & PseudoDbg_grp_mask);
   int reg = ((iw0 >> PseudoDbg_reg_bits) & PseudoDbg_reg_mask);
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_psedoDEBUG);
   TRACE_EXTRACT (cpu, "%s: fn:%i grp:%i reg:%i", __func__, fn, grp, reg);
 
   if ((reg == 0 || reg == 1) && fn == 3)
@@ -6572,7 +6342,6 @@ decode_psedoOChar_0 (DisasContext *dc, bu16 iw0)
   int ch = ((iw0 >> PseudoChr_ch_bits) & PseudoChr_ch_mask);
   TCGv tmp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_psedoOChar);
   TRACE_EXTRACT (cpu, "%s: ch:%#x", __func__, ch);
   TRACE_INSN (cpu, "OUTC %#x;", ch);
 
@@ -6601,7 +6370,6 @@ decode_psedodbg_assert_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   const char *dbg_name, *dbg_appd;
   TCGv reg, exp;
 
-  PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_psedodbg_assert);
   TRACE_EXTRACT (cpu, "%s: dbgop:%i grp:%i regtest:%i expected:%#x",
 		 __func__, dbgop, grp, regtest, expected);
 
@@ -6722,7 +6490,6 @@ _interp_insn_bfin (DisasContext *dc, target_ulong pc)
 
   if ((iw0 & 0xf7ff) == 0xc003 && iw1 == 0x1800)
     {
-      PROFILE_COUNT_INSN (cpu, pc, BFIN_INSN_dsp32mac);
       TRACE_INSN (cpu, "MNOP;");
     }
   else if (((iw0 & 0xFF80) == 0xE080) && ((iw1 & 0x0C00) == 0x0000))
@@ -6763,7 +6530,7 @@ _interp_insn_bfin (DisasContext *dc, target_ulong pc)
 }
 
 /* Interpret a single Blackfin insn; breaks up parallel insns */
-void
+static void
 interp_insn_bfin (DisasContext *dc)
 {
   _interp_insn_bfin (dc, dc->pc);

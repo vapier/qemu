@@ -51,6 +51,7 @@ static TCGv cpu_rete;
 static TCGv cpu_emudat;
 static TCGv cpu_pc;
 static TCGv cpu_cc;
+static TCGv cpu_astat_op, cpu_astat_src[2];
 
 #include "gen-icount.h"
 
@@ -105,6 +106,13 @@ CPUState *cpu_init(const char *cpu_model)
 		offsetof(CPUState, pc), "PC");
 	cpu_cc = tcg_global_mem_new(TCG_AREG0,
 		offsetof(CPUState, astat[ASTAT_CC]), "CC");
+
+	cpu_astat_op = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, astat_op), "astat_op");
+	cpu_astat_src[0] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, astat_src[0]), "astat_src[0]");
+	cpu_astat_src[1] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, astat_src[1]), "astat_src[1]");
 
 	bfin_tcg_new_set(dreg, 0);
 	bfin_tcg_new_set(preg, 8);
@@ -277,9 +285,7 @@ static void gen_maybe_lb_exit_tb(DisasContext *dc, TCGv *reg)
 //		gen_gotoi_tb(dc, 0, dc->pc + dc->insn_len);
 }
 
-typedef void (*hwloop_callback)(DisasContext *dc, int loop, void *data);
-
-static void gen_hwloop_default(DisasContext *dc, int loop, void *data)
+static void gen_hwloop_default(DisasContext *dc, int loop)
 {
 	if (loop != -1)
 		gen_goto_tb(dc, 0, cpu_ltreg[loop]);
@@ -296,10 +302,10 @@ static void _gen_hwloop_call(DisasContext *dc, int loop)
 		tcg_gen_mov_tl(cpu_rets, cpu_ltreg[loop]);
 }
 
-static void gen_hwloop_br_pcrel_cc(DisasContext *dc, int loop, void *data)
+static void gen_hwloop_br_pcrel_cc(DisasContext *dc, int loop)
 {
 	int l;
-	int pcrel = (unsigned long)data;
+	int pcrel = (unsigned long)dc->hwloop_data;
 	int T = pcrel & 1;
 	pcrel &= ~1;
 
@@ -307,40 +313,52 @@ static void gen_hwloop_br_pcrel_cc(DisasContext *dc, int loop, void *data)
 	tcg_gen_brcondi_tl(TCG_COND_NE, cpu_cc, T, l);
 	gen_gotoi_tb(dc, 0, dc->pc + pcrel);
 	gen_set_label(l);
-	gen_hwloop_default(dc, loop, data);
+	if (loop == -1)
+		dc->hwloop_callback = gen_hwloop_default;
+	else
+		gen_hwloop_default(dc, loop);
 }
 
-static void gen_hwloop_br_pcrel(DisasContext *dc, int loop, void *data)
+static void gen_hwloop_br_pcrel(DisasContext *dc, int loop)
 {
-	TCGv *reg = data;
+	TCGv *reg = dc->hwloop_data;
 	_gen_hwloop_call(dc, loop);
 	tcg_gen_addi_tl(cpu_pc, *reg, dc->pc);
 	gen_goto_tb(dc, 0, cpu_pc);
 }
 
-static void gen_hwloop_br_direct(DisasContext *dc, int loop, void *data)
+static void gen_hwloop_br_pcrel_imm(DisasContext *dc, int loop)
 {
-	TCGv *reg = data;
+	int pcrel = (unsigned long)dc->hwloop_data;
+    TCGv tmp;
+
+	_gen_hwloop_call(dc, loop);
+    tmp = tcg_const_tl(pcrel);
+	tcg_gen_addi_tl(cpu_pc, tmp, dc->pc);
+    tcg_temp_free(tmp);
+	gen_goto_tb(dc, 0, cpu_pc);
+}
+
+static void gen_hwloop_br_direct(DisasContext *dc, int loop)
+{
+	TCGv *reg = dc->hwloop_data;
 	_gen_hwloop_call(dc, loop);
 	gen_goto_tb(dc, 0, *reg);
 }
 
-static void _gen_hwloop_check(DisasContext *dc, int loop, int l,
-                              hwloop_callback gen_callback, void *data)
+static void _gen_hwloop_check(DisasContext *dc, int loop, int l)
 {
 	tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_lcreg[loop], 0, l);
 	tcg_gen_subi_tl(cpu_lcreg[loop], cpu_lcreg[loop], 1);
 	tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_lcreg[loop], 0, l);
-	gen_callback(dc, loop, data);
+	dc->hwloop_callback(dc, loop);
 }
 
-static void gen_hwloop_check(DisasContext *dc,
-                             hwloop_callback gen_callback, void *data)
+static void gen_hwloop_check(DisasContext *dc)
 {
 	bool loop1, loop0;
 	int endl;
 
-	dc->did_hwloop = 1;
 	loop1 = (dc->pc == dc->env->lbreg[1]);
 	loop0 = (dc->pc == dc->env->lbreg[0]);
 
@@ -354,7 +372,7 @@ static void gen_hwloop_check(DisasContext *dc,
 		else
 			l = endl;
 
-		_gen_hwloop_check(dc, 1, l, gen_callback, data);
+		_gen_hwloop_check(dc, 1, l);
 
 		if (loop0) {
 			tcg_gen_br(endl);
@@ -363,12 +381,12 @@ static void gen_hwloop_check(DisasContext *dc,
 	}
 
 	if (loop0)
-		_gen_hwloop_check(dc, 0, endl, gen_callback, data);
+		_gen_hwloop_check(dc, 0, endl);
 
 	if (loop1 || loop0)
 		gen_set_label(endl);
 
-	gen_callback(dc, -1, data);
+	dc->hwloop_callback(dc, -1);
 }
 
 /* R#.L = reg */
@@ -527,7 +545,12 @@ static void gen_helper_divs(TCGv pquo, TCGv src)
 	_gen_helper_divqs(pquo, r, aq, div);
 }
 
-void interp_insn_bfin(DisasContext *dc);
+static void gen_astat_update(void)
+{
+	
+}
+
+static void interp_insn_bfin(DisasContext *dc);
 
 static void
 gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
@@ -554,13 +577,10 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 
 	dc->is_jmp = DISAS_NEXT;
 	dc->pc = pc_start;
-//	dc->called_pc = 0;
+	dc->astat_op = ASTAT_OP_UNKNOWN;
+	dc->hwloop_callback = gen_hwloop_default;
 //	dc->singlestep_enabled = env->singlestep_enabled;
 //	dc->cpustate_changed = 0;
-
-	/* XXX: Sim handles this itself now in IFETCH.  */
-//	if (pc_start & 1)
-//		cpu_abort(env, "Blackfin: unaligned PC=%x\n", pc_start);
 
 	next_page_start = (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
 	lj = -1;
@@ -596,10 +616,8 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 		if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP)))
 			tcg_gen_debug_insn_start(dc->pc);
 
-		dc->did_hwloop = 0;
-		/*dc->insn_len = */interp_insn_bfin(dc);
-		if (!dc->did_hwloop)
-			gen_hwloop_check(dc, gen_hwloop_default, NULL);
+		interp_insn_bfin(dc);
+		gen_hwloop_check(dc);
 		dc->pc += dc->insn_len;
 
 		++num_insns;

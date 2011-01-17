@@ -22,6 +22,8 @@
 #ifndef CPU_BFIN_H
 #define CPU_BFIN_H
 
+struct DisasContext;
+
 #define TARGET_LONG_BITS 32
 
 #include "cpu-defs.h"
@@ -83,7 +85,6 @@ enum {
 	ASTAT_VS
 };
 
-//#include "sim-main.h"
 typedef struct CPUBFINState {
 	CPU_COMMON
 	uint32_t dreg[8];
@@ -108,6 +109,8 @@ typedef struct CPUBFINState {
 
 	/* ASTAT bits; broken up for speeeeeeeed */
 	uint32_t astat[32];
+	/* ASTAT delayed helpers */
+	uint32_t astat_op, astat_src[2];
 } CPUBFINState;
 #define spreg preg[6]
 #define fpreg preg[7]
@@ -130,6 +133,14 @@ static inline void bfin_astat_write(CPUState *env, uint32_t astat)
 		env->astat[i] = !!(astat & (1 << i));
 }
 
+enum astat_ops {
+	ASTAT_OP_UNKNOWN,
+
+	ASTAT_OP_ADD,
+};
+
+typedef void (*hwloop_callback)(struct DisasContext *dc, int loop);
+
 typedef struct DisasContext {
 	CPUState *env;
 	struct TranslationBlock *tb;
@@ -138,6 +149,9 @@ typedef struct DisasContext {
 	/* Length of current insn (2/4/8) */
 	target_ulong insn_len;
 
+	enum astat_ops astat_op;
+	hwloop_callback hwloop_callback;
+	void *hwloop_data;
 	int did_hwloop;
 	int is_jmp;
 	int mem_idx;
