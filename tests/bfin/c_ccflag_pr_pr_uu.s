@@ -190,4 +190,23 @@ CHECKREG r2, 0x00000000;
 CHECKREG r3, 0x00000000;
 
 
+imm32 p4, 0x80230123;
+imm32 p5, 0x00230123;
+imm32 fp, 0x80560056;
+imm32 sp, 0x00890089;
+// operate on negative number
+R0 = 0;
+ASTAT = R0;
+R0 = ASTAT;
+
+// negative preg-1 LESS    than POSITIVE preg-2
+CC = R6 < R7 (IU);
+R2 = ASTAT;
+CC = R6 <= R7 (IU);
+R3 = ASTAT;
+CHECKREG r0, 0x00000000;  // overflow and carry but not negative
+CHECKREG r2, 0x00001005;  // cc overflow, carry and negative
+CHECKREG r3, 0x00001025;
+
+
 pass;

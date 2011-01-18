@@ -20,3 +20,6 @@ Things we do not handle by design:
 
 	- unaligned memory access exceptions
 		- qemu itself doesn't support this for targets
+
+	- AC0_COPY and V_COPY
+		- no one has ever used these instead of AC0 or V

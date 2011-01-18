@@ -594,6 +594,7 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		tcg_gen_not_tl(tmp, cpu_astat_arg[1]);
 		tcg_gen_setcond_tl(TCG_COND_LTU, tmp, tmp, cpu_astat_arg[2]);
 		_gen_astat_store(ASTAT_AC0, tmp);
+		_gen_astat_store(ASTAT_AC0_COPY, tmp);
 		break;
 
 	case ASTAT_OP_COMPARE_SIGNED: {
@@ -602,6 +603,7 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		_gen_astat_update_az(res, tmp);
 		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[1], cpu_astat_arg[0]);
 		_gen_astat_store(ASTAT_AC0, tmp);
+		_gen_astat_store(ASTAT_AC0_COPY, tmp);
 		/* XXX: This has got to be simpler ... */
 		/* int flgs = srcop >> 31; */
 		flgs = tcg_temp_new();
@@ -637,6 +639,7 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		_gen_astat_update_az(tmp, tmp);
 		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[1], cpu_astat_arg[0]);
 		_gen_astat_store(ASTAT_AC0, tmp);
+		_gen_astat_store(ASTAT_AC0_COPY, tmp);
 		tcg_gen_setcond_tl(TCG_COND_GTU, tmp, cpu_astat_arg[1], cpu_astat_arg[0]);
 		_gen_astat_store(ASTAT_AN, tmp);
 		break;
@@ -644,7 +647,9 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 	case ASTAT_OP_LOGICAL:
 		tcg_gen_movi_tl(tmp, 0);
 		_gen_astat_store(ASTAT_AC0, tmp);
+		_gen_astat_store(ASTAT_AC0_COPY, tmp);
 		_gen_astat_store(ASTAT_V, tmp);
+		_gen_astat_store(ASTAT_V_COPY, tmp);
 		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
 		break;
 
@@ -663,17 +668,20 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		_gen_astat_store(ASTAT_AN, tmp);
 		tcg_gen_movi_tl(tmp, 0);
 		_gen_astat_store(ASTAT_V, tmp);
+		_gen_astat_store(ASTAT_V_COPY, tmp);
 		break;
 
 	case ASTAT_OP_MIN_MAX:	/* [0] = MAX/MIN( [1], [2] ) */
 		tcg_gen_movi_tl(tmp, 0);
 		_gen_astat_store(ASTAT_V, tmp);
+		_gen_astat_store(ASTAT_V_COPY, tmp);
 		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
 		break;
 
 	case ASTAT_OP_SUB32:	/* [0] = [1] - [2] */
 		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[2], cpu_astat_arg[1]);
 		_gen_astat_store(ASTAT_AC0, tmp);
+		_gen_astat_store(ASTAT_AC0_COPY, tmp);
 		tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_astat_arg[0], 0x80000000);
 		_gen_astat_store(ASTAT_AN, tmp);
 		break;
