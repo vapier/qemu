@@ -231,6 +231,8 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	log_target_disas(env->pc, len, 0);
 }
 
+static void gen_astat_update(DisasContext *, bool);
+
 static void gen_goto_tb(DisasContext *dc, int tb_num, TCGv dest)
 {
 	TranslationBlock *tb;
@@ -242,6 +244,7 @@ printf("%s: here\n", __func__);
 		tcg_gen_mov_tl(cpu_pc, dest);
 		tcg_gen_exit_tb((long)tb + tb_num);
 	} else */{
+//gen_astat_update(dc, false);
 		tcg_gen_goto_tb(0);
 		tcg_gen_mov_tl(cpu_pc, dest);
 		tcg_gen_exit_tb(0);
@@ -334,12 +337,12 @@ static void gen_hwloop_br_pcrel(DisasContext *dc, int loop)
 static void gen_hwloop_br_pcrel_imm(DisasContext *dc, int loop)
 {
 	int pcrel = (unsigned long)dc->hwloop_data;
-    TCGv tmp;
+	TCGv tmp;
 
 	_gen_hwloop_call(dc, loop);
-    tmp = tcg_const_tl(pcrel);
+	tmp = tcg_const_tl(pcrel);
 	tcg_gen_addi_tl(cpu_pc, tmp, dc->pc);
-    tcg_temp_free(tmp);
+	tcg_temp_free(tmp);
 	gen_goto_tb(dc, 0, cpu_pc);
 }
 
@@ -397,6 +400,7 @@ static void gen_hwloop_check(DisasContext *dc)
 static void gen_mov_l_tl(TCGv dst, TCGv src)
 {
 	tcg_gen_andi_tl(dst, dst, 0xffff0000);
+	tcg_gen_andi_tl(src, src, 0xffff);
 	tcg_gen_or_tl(dst, dst, src);
 }
 
@@ -404,7 +408,7 @@ static void gen_mov_l_tl(TCGv dst, TCGv src)
 static void gen_movi_l_tl(TCGv dst, uint32_t src)
 {
 	tcg_gen_andi_tl(dst, dst, 0xffff0000);
-	tcg_gen_ori_tl(dst, dst, src);
+	tcg_gen_ori_tl(dst, dst, src & 0xffff);
 }
 
 /* R#.H = reg */
@@ -441,6 +445,15 @@ static void gen_helper_signbitsi(TCGv dst, TCGv src, uint32_t size)
 	TCGv tmp_size = tcg_const_tl(size);
 	gen_helper_signbits(dst, src, tmp_size);
 	tcg_temp_free(tmp_size);
+}
+
+static void gen_abs_tl(TCGv ret, TCGv arg)
+{
+	int l = gen_new_label();
+	tcg_gen_mov_tl(ret, arg);
+	tcg_gen_brcondi_tl(TCG_COND_GE, arg, 0, l);
+	tcg_gen_neg_tl(ret, ret);
+	gen_set_label(l);
 }
 
 /* Common tail code for DIVQ/DIVS insns */
@@ -564,13 +577,13 @@ static void _gen_astat_update_nz(TCGv reg, TCGv tmp)
 	_gen_astat_store(ASTAT_AN, tmp);
 }
 
-static void gen_astat_update(DisasContext *dc)
+static void gen_astat_update(DisasContext *dc, bool clear)
 {
 	TCGv tmp = tcg_temp_local_new();
 
 	/* XXX: Might not be correct ... */
-	if (dc->astat_op == ASTAT_OP_DYNAMIC)
-		dc->astat_op = dc->env->astat_op;
+//	if (dc->astat_op == ASTAT_OP_DYNAMIC)
+//		dc->astat_op = dc->env->astat_op;
 
 	switch (dc->astat_op) {
 	case ASTAT_OP_ABS:	/* [0] = ABS( [1] ) */
@@ -675,7 +688,8 @@ static void gen_astat_update(DisasContext *dc)
 
 	tcg_temp_free(tmp);
 
-//	dc->astat_op = ASTAT_OP_DYNAMIC;
+	if (clear)
+		dc->astat_op = ASTAT_OP_NONE;
 //	tcg_gen_movi_tl(cpu_astat_op, dc->astat_op);
 }
 
@@ -695,6 +709,8 @@ _astat_queue_state(DisasContext *dc, enum astat_ops op, unsigned int num,
 		tcg_gen_mov_tl(cpu_astat_arg[2], arg2);
 	else
 		tcg_gen_discard_tl(cpu_astat_arg[2]);
+
+	gen_astat_update(dc, true);
 }
 #define astat_queue_state1(dc, op, arg0)             _astat_queue_state(dc, op, 1, arg0, arg0, arg0)
 #define astat_queue_state2(dc, op, arg0, arg1)       _astat_queue_state(dc, op, 2, arg0, arg1, arg1)

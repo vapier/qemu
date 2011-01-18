@@ -2132,7 +2132,7 @@ decode_CC2stat_0 (DisasContext *dc, bu16 iw0)
   if (cbit == 5)
     illegal_instruction (dc);
 
-  gen_astat_update(dc);
+  //gen_astat_update(dc, true);
 
 #if 0
   pval = !!(ASTAT & (1 << cbit));
@@ -5034,16 +5034,10 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
     {
 //      bu32 val = DREG (src0);
 //      int v;
-      int l;
-
       TRACE_INSN (cpu, "R%i = ABS R%i;", dst0, src0);
 
       /* XXX: Missing saturation support (and ASTAT V/VS) */
-      l = gen_new_label();
-      tcg_gen_mov_tl(cpu_dreg[dst0], cpu_dreg[src0]);
-      tcg_gen_brcondi_tl(TCG_COND_GE, cpu_dreg[src0], 0, l);
-      tcg_gen_neg_tl(cpu_dreg[dst0], cpu_dreg[dst0]);
-      gen_set_label(l);
+      gen_abs_tl(cpu_dreg[dst0], cpu_dreg[src0]);
 
       astat_queue_state2(dc, ASTAT_OP_ABS, cpu_dreg[dst0], cpu_dreg[src0]);
 /*
@@ -5262,23 +5256,34 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
     {
 //      bs32 shft = (bs8)(DREG (src0) << 2) >> 2;
 //      bu16 val;
+      int l, endl;
       TCGv val;
 
       TRACE_INSN (cpu, "R%i.%c = LSHIFT R%i.%c BY R%i.L;",
 		  dst0, HLs < 2 ? 'L' : 'H',
 		  src1, HLs & 1 ? 'H' : 'L', src0);
 
-      tmp = tcg_temp_new();
+      tmp = tcg_temp_local_new();
       gen_extNs_tl(tmp, cpu_dreg[src0], 6);
 
-      val = tcg_temp_new();
+      val = tcg_temp_local_new();
       if (HLs & 1)
 	tcg_gen_shri_tl(val, cpu_dreg[src1], 16);
       else
 	tcg_gen_ext16u_tl(val, cpu_dreg[src1]);
 
-      /* XXX: a negative shift should be a right shift ... */
+      /* Negative shift magnitudes means shift right */
+      endl = gen_new_label();
+      l = gen_new_label();
+      tcg_gen_brcondi_tl(TCG_COND_GE, tmp, 0, l);
+      tcg_gen_neg_tl(tmp, tmp);
+      tcg_gen_shr_tl(val, val, tmp);
+      tcg_gen_br(endl);
+      gen_set_label(l);
       tcg_gen_shl_tl(val, val, tmp);
+      gen_set_label(endl);
+
+      tcg_gen_andi_tl(val, val, 0xffff);
 
       if (HLs & 2)
 	gen_mov_h_tl(cpu_dreg[dst0], val);
@@ -5386,6 +5391,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 //      bu32 v = DREG (src1);
       /* LSHIFT uses sign extended low 6 bits of dregs_lo.  */
       bs32 shft = 0; //(bs8)(DREG (src0) << 2) >> 2;
+      int l, endl;
 
       TRACE_INSN (cpu, "R%i = %cSHIFT R%i BY R%i.L%s;", dst0,
 		  shft && sop != 2 ? 'A' : 'L', src1, src0,
@@ -5406,12 +5412,24 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	STORE (DREG (dst0), lshift (cpu, v, shft, 32, sop == 1));
 */
       /* Assume LSHIFT with positive magnitude for now */
-      tmp = tcg_temp_new();
-      tcg_gen_andi_tl(tmp, cpu_dreg[src0], 0x3f);
+      tmp = tcg_temp_local_new();
+      gen_extNs_tl(tmp, cpu_dreg[src0], 6);
+
       if (sop != 2)
 	tcg_gen_sar_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
       else
-	tcg_gen_shl_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+	{
+	  endl = gen_new_label();
+	  l = gen_new_label();
+	  tcg_gen_brcondi_tl(TCG_COND_GE, tmp, 0, l);
+	  tcg_gen_neg_tl(tmp, tmp);
+	  tcg_gen_shr_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+	  tcg_gen_br(endl);
+	  gen_set_label(l);
+	  tcg_gen_shl_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+	  gen_set_label(endl);
+	}
+
       tcg_temp_free(tmp);
     }
 #if 0
@@ -5904,9 +5922,11 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	tcg_gen_shri_tl(tmp, tmp, immag);
 #endif
       else if (sop == 2 && bit8)
+	{
 	/* dregs_hi/lo = dregs_hi/lo >> imm4 */
 //	result = lshiftrt (cpu, in, newimmag, 16);
-	tcg_gen_shri_tl(tmp, tmp, newimmag);
+	  tcg_gen_shri_tl(tmp, tmp, newimmag);
+	}
       else if (sop == 2 && bit8 == 0)
 	/* dregs_hi/lo = dregs_hi/lo << imm4 */
 //	result = lshift (cpu, in, immag, 16, 0);
