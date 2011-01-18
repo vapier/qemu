@@ -429,7 +429,6 @@ amod1 (int s0, int x0)
   return "";
 }
 
-#if 0
 static const char *
 amod0 (int s0, int x0)
 {
@@ -442,6 +441,7 @@ amod0 (int s0, int x0)
   return "";
 }
 
+#if 0
 static void
 setflags_nz (DisasContext *dc, bu32 val)
 {
@@ -1622,11 +1622,18 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   else if (prgfunc == 11 && poprnd < 6)
     {
       /* TESTSET (Preg{poprnd}); */
+      TCGv tmp;
 //      bu32 addr = PREG (poprnd);
 //      bu8 byte;
 //      byte = GET_WORD (addr);
 //      SET_CCREG (byte == 0);
 //      PUT_BYTE (addr, byte | 0x80);
+      tmp = tcg_temp_new();
+      tcg_gen_qemu_ld8u(tmp, cpu_preg[poprnd], dc->mem_idx);
+      tcg_gen_setcondi_tl(TCG_COND_EQ, cpu_cc, tmp, 0);
+      tcg_gen_ori_tl(tmp, tmp, 0x80);
+      tcg_gen_qemu_st8(tmp, cpu_preg[poprnd], dc->mem_idx);
+      tcg_temp_free(tmp);
 //      /* Also includes memory stalls, but we don't model that.  */
 //      CYCLE_DELAY = 2;
     }
@@ -2271,6 +2278,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
   const char *srcreg_name = get_allreg_name (gs, src);
   const char *dstreg_name = get_allreg_name (gd, dst);
   TCGv reg_src, reg_dst, tmp;
+  bool istmp;
 
   TRACE_EXTRACT (cpu, "%s: gd:%i gs:%i dst:%i src:%i",
 		 __func__, gd, gs, dst, src);
@@ -2317,13 +2325,34 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
       tmp = tcg_temp_new();
       gen_helper_astat_load(tmp);
       reg_src = tmp;
+      istmp = true;
+    }
+  else if (gs == 4 && (src == 0 || src == 2))
+    {
+      tmp = tcg_temp_new();
+      tcg_gen_ext8s_tl(tmp, cpu_axreg[!!src]);
+      reg_src = tmp;
+      istmp = true;
     }
   else
-    reg_src = get_allreg(dc, gs, src);
+    {
+      reg_src = get_allreg(dc, gs, src);
+      istmp = false;
+    }
 
   if (gd == 4 && dst == 6)
     {
       gen_astat_store(dc, reg_src);
+    }
+  else if (gd == 4 && (dst == 0 || dst == 2))
+    {
+      /* XXX: Probably should saturate here */
+      tcg_gen_andi_tl(cpu_axreg[!!dst], reg_src, 0xff);
+    }
+  else if (gd == 6 && (dst == 1 || dst == 4))
+    {
+      /* LT loads auto clear the LSB */
+      tcg_gen_andi_tl(cpu_ltreg[dst >> 2], reg_src, ~1);
     }
   else
     {
@@ -2332,7 +2361,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
       gen_maybe_lb_exit_tb(dc, &reg_dst);
     }
 
-  if (gs == 4 && src == 6)
+  if (istmp)
     tcg_temp_free(tmp);
 //  reg_write (cpu, gd, dst, reg_read (cpu, gs, src));
 }
@@ -2370,6 +2399,7 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
       clipi (dc, &cpu_dreg[src], &tmp, 31);
       tcg_gen_sar_tl(cpu_dreg[dst], cpu_dreg[dst], tmp);
       tcg_temp_free(tmp);
+      astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT, cpu_dreg[dst]);
     }
   else if (opc == 1)
     {
@@ -2621,6 +2651,7 @@ decode_LOGI2op_0 (DisasContext *dc, bu16 iw0)
       TRACE_INSN (cpu, "R%i >>>= %s;", dst, uimm_str);
 //      SET_DREG (dst, ashiftrt (cpu, DREG (dst), uimm, 32));
       tcg_gen_sari_tl(cpu_dreg[dst], cpu_dreg[dst], uimm);
+      astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT, cpu_dreg[dst]);
     }
   else if (opc == 6)
     {
@@ -2659,17 +2690,15 @@ decode_COMP3op_0 (DisasContext *dc, bu16 iw0)
     {
       /* Dreg{dst} = Dreg{src0} + Dreg{src1}; */
 //      SET_DREG (dst, add32 (cpu, DREG (src0), DREG (src1), 1, 0));
-      tcg_gen_add_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
-
       astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+      tcg_gen_add_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
     }
   else if (opc == 1)
     {
       /* Dreg{dst} = Dreg{src0} - Dreg{src1}; */
 //      SET_DREG (dst, sub32 (cpu, DREG (src0), DREG (src1), 1, 0, 0));
-      tcg_gen_sub_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
-
       astat_queue_state3(dc, ASTAT_OP_SUB32, cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+      tcg_gen_sub_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
     }
   else if (opc == 2)
     {
@@ -2738,10 +2767,12 @@ decode_COMPI2opD_0 (DisasContext *dc, bu16 iw0)
     {
       TRACE_INSN (cpu, "R%i += %s;", dst, imm7_str (imm));
 //      SET_DREG (dst, add32 (cpu, DREG (dst), imm, 1, 0));
-      tcg_gen_addi_tl(cpu_dreg[dst], cpu_dreg[dst], imm);
-
       tmp = tcg_const_tl(imm);
-      astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], cpu_dreg[dst], tmp);
+      tcg_gen_mov_tl(cpu_astat_arg[1], cpu_dreg[dst]);
+      tcg_gen_add_tl(cpu_dreg[dst], cpu_astat_arg[1], tmp);
+
+      astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], cpu_astat_arg[1], tmp);
+
       tcg_temp_free(tmp);
     }
 }
@@ -4366,12 +4397,16 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       SET_ASTATREG (az, (acc0 == 0) || (acc1 == 0));
       SET_ASTATREG (an, ((acc0 >> 31) & 1) || ((acc1 >> 31) & 1) );
     }
+#endif
   else if (aop == 3 && (s == 0 || s == 1) && aopcde == 8)
     {
       TRACE_INSN (cpu, "A%i = A%i;", s, !s);
-      SET_AXREG (s, AXREG (!s));
-      SET_AWREG (s, AWREG (!s));
+//      SET_AXREG (s, AXREG (!s));
+//      SET_AWREG (s, AWREG (!s));
+      tcg_gen_mov_tl(cpu_axreg[s], cpu_axreg[!s]);
+      tcg_gen_mov_tl(cpu_awreg[s], cpu_awreg[!s]);
     }
+#if 0
   else if (aop == 3 && HL == 0 && aopcde == 16)
     {
       int i;
@@ -4580,8 +4615,10 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
       STORE (DREG (dst0), REG_H_L (tmp1_hi << 16, tmp1_hi));
     }
+#endif
   else if (aopcde == 0)
     {
+/*
       bu32 s0 = DREG (src0);
       bu32 s1 = DREG (src1);
       bu32 s0h = s0 >> 16;
@@ -4590,20 +4627,61 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       bu32 s1l = s1 & 0xFFFF;
       bu32 t0, t1;
       bu32 ac1_i = 0, ac0_i = 0, v_i = 0, z_i = 0, n_i = 0;
+*/
+      TCGv s0, s1, t0, t1;
 
       TRACE_INSN (cpu, "R%i = R%i %c|%c R%i%s;", dst0, src0,
 		  (aop & 2) ? '-' : '+', (aop & 1) ? '-' : '+', src1,
 		  amod0 (s, x));
+
+      if (s || x)
+	unhandled_instruction (dc, "S/CO/SCO with +|+/-|-");
+
+      s0 = tcg_temp_local_new();
+      s1 = tcg_temp_local_new();
+
+/*
       if (aop & 2)
 	t0 = sub16 (cpu, s0h, s1h, &ac1_i, &v_i, &z_i, &n_i, s, 0);
       else
 	t0 = add16 (cpu, s0h, s1h, &ac1_i, &v_i, &z_i, &n_i, s, 0);
+*/
 
+      t0 = tcg_temp_local_new();
+      tcg_gen_shri_tl(s0, cpu_dreg[src0], 16);
+      tcg_gen_shri_tl(s1, cpu_dreg[src1], 16);
+      if (aop & 2)
+	tcg_gen_sub_tl(t0, s0, s1);
+      else
+	tcg_gen_add_tl(t0, s0, s1);
+
+/*
       if (aop & 1)
 	t1 = sub16 (cpu, s0l, s1l, &ac0_i, &v_i, &z_i, &n_i, s, 0);
       else
 	t1 = add16 (cpu, s0l, s1l, &ac0_i, &v_i, &z_i, &n_i, s, 0);
+*/
 
+      t1 = tcg_temp_local_new();
+      tcg_gen_andi_tl(s0, cpu_dreg[src0], 0xffff);
+      tcg_gen_andi_tl(s1, cpu_dreg[src1], 0xffff);
+      if (aop & 1)
+	tcg_gen_sub_tl(t1, s0, s1);
+      else
+	tcg_gen_add_tl(t1, s0, s1);
+
+      /* Need AN, AC0/AC1, V */
+      tcg_gen_andi_tl(t0, t0, 0xffff);
+      tcg_gen_andi_tl(t1, t1, 0xffff);
+      tcg_gen_setcondi_tl(TCG_COND_EQ, s0, t0, 0);
+      tcg_gen_setcondi_tl(TCG_COND_EQ, s1, t1, 0);
+      tcg_gen_or_tl(s0, s0, s1);
+      _gen_astat_store(ASTAT_AZ, s0);
+
+      tcg_temp_free(s0);
+      tcg_temp_free(s1);
+
+/*
       SET_ASTATREG (ac1, ac1_i);
       SET_ASTATREG (ac0, ac0_i);
       SET_ASTATREG (az, z_i);
@@ -4618,7 +4696,24 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	SET_DREG (dst0, (t1 << 16) | t0);
       else
 	SET_DREG (dst0, (t0 << 16) | t1);
+*/
+
+      
+
+      if (x)
+	{
+	  tcg_gen_ext16u_tl(cpu_dreg[dst0], t0);
+	  tcg_gen_shli_tl(t1, t1, 16);
+	  tcg_gen_or_tl(cpu_dreg[dst0], cpu_dreg[dst0], t1);
+	}
+      else
+	{
+	  tcg_gen_ext16u_tl(cpu_dreg[dst0], t1);
+	  tcg_gen_shli_tl(t0, t0, 16);
+	  tcg_gen_or_tl(cpu_dreg[dst0], cpu_dreg[dst0], t0);
+	}
     }
+#if 0
   else if (aop == 1 && aopcde == 12)
     {
       bu32 val0 = (((AWREG (0) & 0xFFFF0000) >> 16) + (AWREG (0) & 0xFFFF)) & 0xFFFF;
@@ -5283,8 +5378,6 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       tcg_gen_shl_tl(val, val, tmp);
       gen_set_label(endl);
 
-      tcg_gen_andi_tl(val, val, 0xffff);
-
       if (HLs & 2)
 	gen_mov_h_tl(cpu_dreg[dst0], val);
       else
@@ -5416,7 +5509,10 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       gen_extNs_tl(tmp, cpu_dreg[src0], 6);
 
       if (sop != 2)
-	tcg_gen_sar_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+	{
+	  tcg_gen_sar_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+	  astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT, cpu_dreg[dst0]);
+	}
       else
 	{
 	  endl = gen_new_label();
@@ -5428,6 +5524,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	  gen_set_label(l);
 	  tcg_gen_shl_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
 	  gen_set_label(endl);
+	  astat_queue_state1(dc, ASTAT_OP_LSHIFT, cpu_dreg[dst0]);
 	}
 
       tcg_temp_free(tmp);
@@ -5804,6 +5901,8 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       bu32 fgnd = (fg >> 16) & mask;
       int shft = ((fg >> 8) & 0x1f);
 
+      TCGv fg, bg, len, mask, fgnd, shft;
+
       TRACE_INSN (cpu, "R%i = DEPOSIT (R%i, R%i)%s;", dst0, src1, src0,
 		  sop == 3 ? " (X)" : "");
 
@@ -5817,8 +5916,10 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       mask <<= shft;
       bg &= ~mask;
 
-      SET_DREG (dst0, bg | fgnd);
-      setflags_logical (cpu, DREG (dst0));
+//      SET_DREG (dst0, bg | fgnd);
+      tcg_gen_or_tl(cpu_dreg[dst0], bg, fgnd);
+//      setflags_logical (cpu, DREG (dst0));
+      astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst0]);
     }
   else if (sop == 0 && sopcde == 11)
     {

@@ -288,8 +288,11 @@ static void cec_require_supervisor(DisasContext *dc)
 static void gen_maybe_lb_exit_tb(DisasContext *dc, TCGv *reg)
 {
 	/* XXX: We need to invalidate all TB's */
+	dc->is_jmp = DISAS_UPDATE;
 //	if (reg == &cpu_lbreg[0] || reg == &cpu_lbreg[1])
-//		gen_gotoi_tb(dc, 0, dc->pc + dc->insn_len);
+		/* XXX: Not entirely correct, but very few things load
+		 *      directly into LB ... */
+		gen_gotoi_tb(dc, 0, dc->pc + dc->insn_len);
 }
 
 static void gen_hwloop_default(DisasContext *dc, int loop)
@@ -570,11 +573,16 @@ static void _gen_astat_update_az(TCGv reg, TCGv tmp)
 	_gen_astat_store(ASTAT_AZ, tmp);
 }
 
+static void _gen_astat_update_an(TCGv reg, TCGv tmp, uint32_t len)
+{
+	tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, reg, 1 << (len - 1));
+	_gen_astat_store(ASTAT_AN, tmp);
+}
+
 static void _gen_astat_update_nz(TCGv reg, TCGv tmp)
 {
 	_gen_astat_update_az(reg, tmp);
-	tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, reg, 0x80000000);
-	_gen_astat_store(ASTAT_AN, tmp);
+	_gen_astat_update_an(reg, tmp, 32);
 }
 
 static void gen_astat_update(DisasContext *dc, bool clear)
@@ -595,6 +603,7 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		tcg_gen_setcond_tl(TCG_COND_LTU, tmp, tmp, cpu_astat_arg[2]);
 		_gen_astat_store(ASTAT_AC0, tmp);
 		_gen_astat_store(ASTAT_AC0_COPY, tmp);
+		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
 		break;
 
 	case ASTAT_OP_COMPARE_SIGNED: {
@@ -646,6 +655,7 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 
 	case ASTAT_OP_LOGICAL:
 		tcg_gen_movi_tl(tmp, 0);
+		/* AC0 is correct ? */
 		_gen_astat_store(ASTAT_AC0, tmp);
 		_gen_astat_store(ASTAT_AC0_COPY, tmp);
 		_gen_astat_store(ASTAT_V, tmp);
