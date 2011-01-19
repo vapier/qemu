@@ -6230,18 +6230,42 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         ret = do_select(arg1, arg2, arg3, arg4, arg5);
         break;
 #endif
-#ifdef TARGET_NR_poll
+#if defined(TARGET_NR_poll) || defined(TARGET_NR_ppoll)
+# ifdef TARGET_NR_poll
     case TARGET_NR_poll:
+# endif
+# ifdef TARGET_NR_ppoll
+    case TARGET_NR_ppoll:
+# endif
         {
             struct target_pollfd *target_pfd;
             unsigned int nfds = arg2;
             int timeout = arg3;
             struct pollfd *pfd;
             unsigned int i;
+            sigset_t origmask;
 
             target_pfd = lock_user(VERIFY_WRITE, arg1, sizeof(struct target_pollfd) * nfds, 1);
             if (!target_pfd)
                 goto efault;
+
+            if (num == TARGET_NR_ppoll) {
+                sigset_t set;
+                abi_ulong mask;
+
+                if (arg3) {
+                    struct timespec timeout_ts;
+                    target_to_host_timespec(&timeout_ts, arg3);
+                    timeout = timeout_ts.tv_sec * 1000 +
+                              timeout_ts.tv_nsec / 1000000;
+                } else
+                    timeout = -1;
+
+                mask = arg4;
+                target_to_host_old_sigset(&set, &mask);
+                sigprocmask(SIG_SETMASK, &set, &origmask);
+            }
+
             pfd = alloca(sizeof(struct pollfd) * nfds);
             for(i = 0; i < nfds; i++) {
                 pfd[i].fd = tswap32(target_pfd[i].fd);
@@ -6256,6 +6280,9 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
                                - sizeof(struct pollfd));
             }
             unlock_user(target_pfd, arg1, ret);
+
+            if (num == TARGET_NR_ppoll)
+                sigprocmask(SIG_SETMASK, &origmask, NULL);
         }
         break;
 #endif
