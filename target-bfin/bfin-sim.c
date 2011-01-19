@@ -5208,15 +5208,38 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       TRACE_INSN (cpu, "R%i = MAX (R%i, R%i) (V);", dst0, src0, src1);
       SET_DREG (dst0, max2x16 (cpu, DREG (src0), DREG (src1)));
     }
+#endif
   else if (aop == 0 && aopcde == 24)
     {
+      TCGv dst;
       TRACE_INSN (cpu, "R%i = BYTEPACK (R%i, R%i);", dst0, src0, src1);
-      SET_DREG (dst0,
-	(((DREG (src0) >>  0) & 0xff) <<  0) |
-	(((DREG (src0) >> 16) & 0xff) <<  8) |
-	(((DREG (src1) >>  0) & 0xff) << 16) |
-	(((DREG (src1) >> 16) & 0xff) << 24));
+//      SET_DREG (dst0,
+//	(((DREG (src0) >>  0) & 0xff) <<  0) |
+//	(((DREG (src0) >> 16) & 0xff) <<  8) |
+//	(((DREG (src1) >>  0) & 0xff) << 16) |
+//	(((DREG (src1) >> 16) & 0xff) << 24));
+
+      /* XXX: could optimize a little if dst0 is diff from src0 or src1 */
+      /* dst |= (((src0 >>  0) & 0xff) <<  0) */
+      dst = tcg_temp_new();
+      tcg_gen_andi_tl(dst, cpu_dreg[src0], 0xff);
+      tmp = tcg_temp_new();
+      /* dst |= (((src0 >> 16) & 0xff) <<  8) */
+      tcg_gen_andi_tl(tmp, cpu_dreg[src0], 0xff0000);
+      tcg_gen_shri_tl(tmp, tmp, 8);
+      tcg_gen_or_tl(dst, dst, tmp);
+      /* dst |= (((src1 >>  0) & 0xff) << 16) */
+      tcg_gen_andi_tl(tmp, cpu_dreg[src1], 0xff);
+      tcg_gen_shli_tl(tmp, tmp, 16);
+      tcg_gen_or_tl(dst, dst, tmp);
+      /* dst |= (((src1 >> 16) & 0xff) << 24) */
+      tcg_gen_andi_tl(tmp, cpu_dreg[src1], 0xff0000);
+      tcg_gen_shli_tl(tmp, tmp, 8);
+      tcg_gen_or_tl(cpu_dreg[dst0], dst, tmp);
+      tcg_temp_free(tmp);
+      tcg_temp_free(dst);
     }
+#if 0
   else if (aop == 1 && aopcde == 24)
     {
       int order, lo, hi;
@@ -5571,20 +5594,34 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       SET_ASTAT (ASTAT | astat);
       STORE (DREG (dst0), (val1 << 16) | val0);
     }
+#endif
   else if (sopcde == 4)
     {
-      bu32 sv0 = DREG (src0);
-      bu32 sv1 = DREG (src1);
+      TCGv tmph;
+//      bu32 sv0 = DREG (src0);
+//      bu32 sv1 = DREG (src1);
       TRACE_INSN (cpu, "R%i = PACK (R%i.%c, R%i.%c);", dst0,
 		  src1, sop & 2 ? 'H' : 'L',
 		  src0, sop & 1 ? 'H' : 'L');
+//      if (sop & 1)
+//	sv0 >>= 16;
+//      if (sop & 2)
+//	sv1 >>= 16;
+//      SET_DREG (dst0, (sv1 << 16) | (sv0 & 0xFFFF));
+      tmp = tcg_temp_new();
       if (sop & 1)
-	sv0 >>= 16;
+	tcg_gen_shri_tl(tmp, cpu_dreg[src0], 16);
+      else
+	tcg_gen_andi_tl(tmp, cpu_dreg[src0], 0xffff);
+      tmph = tcg_temp_new();
       if (sop & 2)
-	sv1 >>= 16;
-      SET_DREG (dst0, (sv1 << 16) | (sv0 & 0xFFFF));
+	tcg_gen_andi_tl(tmph, cpu_dreg[src1], 0xffff0000);
+      else
+	tcg_gen_shli_tl(tmph, cpu_dreg[src1], 16);
+      tcg_gen_or_tl(cpu_dreg[dst0], tmph, tmp);
+      tcg_temp_free(tmph);
+      tcg_temp_free(tmp);
     }
-#endif
   else if (sop == 0 && sopcde == 5)
     {
 //      bu32 sv1 = DREG (src1);

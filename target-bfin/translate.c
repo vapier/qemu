@@ -179,6 +179,7 @@ void bfin_cpu_list(FILE *f, int (*cpu_fprintf)(FILE *f, const char *fmt, ...))
 		cpu_fprintf(f, "Blackfin %s\n", bfin_defs[i].name);
 }
 
+#define _astat_printf(bit) cpu_fprintf(f, "%s" #bit " ", (env->astat[ASTAT_##bit] ? "" : "~"))
 void cpu_dump_state(CPUState *env, FILE *f,
                     int (*cpu_fprintf)(FILE *f, const char *fmt, ...),
                     int flags)
@@ -216,7 +217,22 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	            env->awreg[0], env->axreg[0], env->awreg[1], env->axreg[1]);
 	cpu_fprintf(f, " USP: %08x ASTAT: %08x   CC : %08x\n",
 	            env->uspreg, bfin_astat_read(env), env->astat[ASTAT_CC]);
-	cpu_fprintf(f, "ASTAT_CACHE:   OP: %02u   ARG: %08x %08x %08x\n",
+	cpu_fprintf(f, "ASTAT BITS: ");
+	_astat_printf(VS);
+	_astat_printf(V);
+	_astat_printf(AV1S);
+	_astat_printf(AV1);
+	_astat_printf(AV0S);
+	_astat_printf(AV0);
+	_astat_printf(AC1);
+	_astat_printf(AC0);
+	_astat_printf(AQ);
+	_astat_printf(CC);
+	_astat_printf(V_COPY);
+	_astat_printf(AC0_COPY);
+	_astat_printf(AN);
+	_astat_printf(AZ);
+	cpu_fprintf(f, "\nASTAT CACHE:   OP: %02u   ARG: %08x %08x %08x\n",
 	            env->astat_op, env->astat_arg[0], env->astat_arg[1], env->astat_arg[2]);
 	cpu_fprintf(f, "              CYCLES: %08x %08x\n",
 	            env->cycles[0], env->cycles[1]);
@@ -668,7 +684,10 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		/* XXX: should be checking bit shifted */
 		tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_astat_arg[0], 0x80000000);
 		_gen_astat_store(ASTAT_AN, tmp);
-		/* XXX: Missing V/VS */
+		/* XXX: No saturation handling ... */
+		tcg_gen_movi_tl(tmp, 0);
+		_gen_astat_store(ASTAT_V, tmp);
+		_gen_astat_store(ASTAT_V_COPY, tmp);
 		break;
 
 	case ASTAT_OP_LSHIFT_RT:
