@@ -1556,60 +1556,60 @@ struct target_stat64 {
 struct target_stat {
 	unsigned short st_dev;
 	unsigned short __pad1;
-	unsigned long st_ino;
+	abi_ulong st_ino;
 	unsigned short st_mode;
 	unsigned short st_nlink;
 	unsigned short st_uid;
 	unsigned short st_gid;
 	unsigned short st_rdev;
 	unsigned short __pad2;
-	unsigned long st_size;
-	unsigned long st_blksize;
-	unsigned long st_blocks;
-	unsigned long target_st_atime;
-	unsigned long __unused1;
-	unsigned long target_st_mtime;
-	unsigned long __unused2;
-	unsigned long target_st_ctime;
-	unsigned long __unused3;
-	unsigned long __unused4;
-	unsigned long __unused5;
+	abi_ulong st_size;
+	abi_ulong st_blksize;
+	abi_ulong st_blocks;
+	abi_ulong target_st_atime;
+	abi_ulong __unused1;
+	abi_ulong target_st_mtime;
+	abi_ulong __unused2;
+	abi_ulong target_st_ctime;
+	abi_ulong __unused3;
+	abi_ulong __unused4;
+	abi_ulong __unused5;
 };
 
 /* This matches struct stat64 in glibc2.1, hence the absolutely
  * insane amounts of padding around dev_t's.
  */
 struct target_stat64 {
-	unsigned long long st_dev;
+	uint64_t st_dev;
 	unsigned char __pad1[4];
 
 #define STAT64_HAS_BROKEN_ST_INO	1
-	unsigned long __st_ino;
+	abi_ulong __st_ino;
 
 	unsigned int st_mode;
 	unsigned int st_nlink;
 
-	unsigned long st_uid;
-	unsigned long st_gid;
+	abi_ulong st_uid;
+	abi_ulong st_gid;
 
-	unsigned long long st_rdev;
+	uint64_t st_rdev;
 	unsigned char __pad2[4];
 
-	long long st_size;
-	unsigned long st_blksize;
+	int64_t st_size;
+	abi_ulong st_blksize;
 
-	long long st_blocks;	/* Number 512-byte blocks allocated. */
+	int64_t st_blocks;	/* Number 512-byte blocks allocated. */
 
-	unsigned long target_st_atime;
-	unsigned long target_st_atime_nsec;
+	abi_ulong target_st_atime;
+	abi_ulong target_st_atime_nsec;
 
-	unsigned long target_st_mtime;
-	unsigned long target_st_mtime_nsec;
+	abi_ulong target_st_mtime;
+	abi_ulong target_st_mtime_nsec;
 
-	unsigned long target_st_ctime;
-	unsigned long target_st_ctime_nsec;
+	abi_ulong target_st_ctime;
+	abi_ulong target_st_ctime_nsec;
 
-	unsigned long long st_ino;
+	uint64_t st_ino;
 };
 
 #elif defined(TARGET_ALPHA)
