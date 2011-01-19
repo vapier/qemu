@@ -147,7 +147,7 @@ fmtconst (const_forms_t cf, TIword x, bfd_vma pc, disassemble_info *outf)
        }
      else
        {
-	  sprintf (buf, "%lx", x);
+	  sprintf (buf, "%#lx", x);
 	  return buf;
        }
     }
@@ -1332,24 +1332,24 @@ decode_BRCC_0 (TIword iw0, bfd_vma pc, disassemble_info *outf)
 
   if (T == 1 && B == 1)
     {
-      OUTS (outf, "IF CC JUMP 0x");
+      OUTS (outf, "IF CC JUMP ");
       OUTS (outf, pcrel10 (offset));
       OUTS (outf, " (BP)");
     }
   else if (T == 0 && B == 1)
     {
-      OUTS (outf, "IF !CC JUMP 0x");
+      OUTS (outf, "IF !CC JUMP ");
       OUTS (outf, pcrel10 (offset));
       OUTS (outf, " (BP)");
     }
   else if (T == 1)
     {
-      OUTS (outf, "IF CC JUMP 0x");
+      OUTS (outf, "IF CC JUMP ");
       OUTS (outf, pcrel10 (offset));
     }
   else if (T == 0)
     {
-      OUTS (outf, "IF !CC JUMP 0x");
+      OUTS (outf, "IF !CC JUMP ");
       OUTS (outf, pcrel10 (offset));
     }
   else
@@ -1370,7 +1370,7 @@ decode_UJUMP_0 (TIword iw0, bfd_vma pc, disassemble_info *outf)
   if (parallel)
     return 0;
 
-  OUTS (outf, "JUMP.S 0x");
+  OUTS (outf, "JUMP.S ");
   OUTS (outf, pcrel12 (offset));
   return 2;
 }
@@ -2634,9 +2634,9 @@ decode_LoopSetup_0 (TIword iw0, TIword iw1, bfd_vma pc, disassemble_info *outf)
   if (rop == 0)
     {
       OUTS (outf, "LSETUP");
-      OUTS (outf, "(0x");
+      OUTS (outf, "(");
       OUTS (outf, pcrel4 (soffset));
-      OUTS (outf, ", 0x");
+      OUTS (outf, ", ");
       OUTS (outf, lppcrel10 (eoffset));
       OUTS (outf, ") ");
       OUTS (outf, counters (c));
@@ -2644,9 +2644,9 @@ decode_LoopSetup_0 (TIword iw0, TIword iw1, bfd_vma pc, disassemble_info *outf)
   else if (rop == 1)
     {
       OUTS (outf, "LSETUP");
-      OUTS (outf, "(0x");
+      OUTS (outf, "(");
       OUTS (outf, pcrel4 (soffset));
-      OUTS (outf, ", 0x");
+      OUTS (outf, ", ");
       OUTS (outf, lppcrel10 (eoffset));
       OUTS (outf, ") ");
       OUTS (outf, counters (c));
@@ -2656,9 +2656,9 @@ decode_LoopSetup_0 (TIword iw0, TIword iw1, bfd_vma pc, disassemble_info *outf)
   else if (rop == 3)
     {
       OUTS (outf, "LSETUP");
-      OUTS (outf, "(0x");
+      OUTS (outf, "(");
       OUTS (outf, pcrel4 (soffset));
-      OUTS (outf, ", 0x");
+      OUTS (outf, ", ");
       OUTS (outf, lppcrel10 (eoffset));
       OUTS (outf, ") ");
       OUTS (outf, counters (c));
@@ -2783,13 +2783,13 @@ decode_LDIMMhalf_0 (TIword iw0, TIword iw1, disassemble_info *outf)
       if (*pval < 0xFFC00000 && grp == 1)
 	{
 	  OUTS (outf, regs (reg, grp));
-	  OUTS (outf, "=0x");
+	  OUTS (outf, "=");
 	  OUTS (outf, huimm32e (*pval));
 	}
       else
 	{
 	  OUTS (outf, regs (reg, grp));
-	  OUTS (outf, "=0x");
+	  OUTS (outf, "=");
 	  OUTS (outf, huimm32e (*pval));
 	  OUTS (outf, "(");
 	  OUTS (outf, imm32 (*pval));
@@ -2803,7 +2803,7 @@ decode_LDIMMhalf_0 (TIword iw0, TIword iw1, disassemble_info *outf)
     {
        OUTS (outf, ";\t\t/*\t\t");
        OUTS (outf, regs (reg, grp));
-       OUTS (outf, "=0x");
+       OUTS (outf, "=");
        OUTS (outf, huimm32e (*pval));
        OUTS (outf, "(");
        OUTS (outf, imm32 (*pval));
@@ -2829,9 +2829,9 @@ decode_CALLa_0 (TIword iw0, TIword iw1, bfd_vma pc, disassemble_info *outf)
     return 0;
 
   if (S == 1)
-    OUTS (outf, "CALL 0x");
+    OUTS (outf, "CALL ");
   else if (S == 0)
-    OUTS (outf, "JUMP.L 0x");
+    OUTS (outf, "JUMP.L ");
   else
     return 0;
 
