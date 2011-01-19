@@ -237,6 +237,7 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	cpu_fprintf(f, "              CYCLES: %08x %08x\n",
 	            env->cycles[0], env->cycles[1]);
 
+/*
 	iw = ldq_code(env->pc);
 	if ((iw & 0xc000) != 0xc000)
 		len = 2;
@@ -245,6 +246,7 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	else
 		len = 4;
 	log_target_disas(env->pc, len, 0);
+*/
 }
 
 static void gen_astat_update(DisasContext *, bool);
@@ -303,12 +305,14 @@ static void cec_require_supervisor(DisasContext *dc)
  */
 static void gen_maybe_lb_exit_tb(DisasContext *dc, TCGv *reg)
 {
-	/* XXX: We need to invalidate all TB's */
+	if (reg != &cpu_lbreg[0] && reg != &cpu_lbreg[1])
+		return;
+
+	//tb_invalidate_phys_page_range
 	dc->is_jmp = DISAS_UPDATE;
-//	if (reg == &cpu_lbreg[0] || reg == &cpu_lbreg[1])
-		/* XXX: Not entirely correct, but very few things load
-		 *      directly into LB ... */
-		gen_gotoi_tb(dc, 0, dc->pc + dc->insn_len);
+	/* XXX: Not entirely correct, but very few things load
+	 *      directly into LB ... */
+	gen_gotoi_tb(dc, 0, dc->pc + dc->insn_len);
 }
 
 static void gen_hwloop_default(DisasContext *dc, int loop)
@@ -711,8 +715,7 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[2], cpu_astat_arg[1]);
 		_gen_astat_store(ASTAT_AC0, tmp);
 		_gen_astat_store(ASTAT_AC0_COPY, tmp);
-		tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, cpu_astat_arg[0], 0x80000000);
-		_gen_astat_store(ASTAT_AN, tmp);
+		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
 		break;
 
 	default:

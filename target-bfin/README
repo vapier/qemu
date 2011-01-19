@@ -23,3 +23,5 @@ Things we do not handle by design:
 
 	- AC0_COPY and V_COPY
 		- no one has ever used these instead of AC0 or V
+
+	- no support for RND_MOD

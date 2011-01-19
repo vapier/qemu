@@ -42,7 +42,7 @@ typedef int64_t bs64;
 #define _TRACE_STUB(cpu, fmt, args...) do { if (0) printf (fmt, ## args); } while (0)
 #define TRACE_INSN(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_IN_ASM, fmt "\n", ## args); } while (0)
 #define TRACE_DECODE(...) _TRACE_STUB(__VA_ARGS__)
-#define TRACE_EXTRACT(cpu, fmt, args...) do { qemu_log_mask(CPU_LOG_TB_CPU, fmt "\n", ## args); } while (0)
+#define TRACE_EXTRACT(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_CPU, fmt "\n", ## args); } while (0)
 
 #define M_S2RND 1
 #define M_T     2
@@ -1567,7 +1567,7 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   else if (prgfunc == 2 && poprnd == 5)
     {
       /* EMUEXCPT; */
-      cec_exception (dc, EXCP_DEBUG);
+//      cec_exception (dc, EXCP_DEBUG);
     }
   else if (prgfunc == 3 && poprnd < 8)
     {
@@ -2682,23 +2682,27 @@ decode_COMP3op_0 (DisasContext *dc, bu16 iw0)
   int dst  = ((iw0 >> COMP3op_dst_bits) & COMP3op_dst_mask);
   int src0 = ((iw0 >> COMP3op_src0_bits) & COMP3op_src0_mask);
   int src1 = ((iw0 >> COMP3op_src1_bits) & COMP3op_src1_mask);
+  TCGv tmp;
 
   TRACE_EXTRACT (cpu, "%s: opc:%i dst:%i src1:%i src0:%i",
 		 __func__, opc, dst, src1, src0);
 
+  tmp = tcg_temp_local_new();
   if (opc == 0)
     {
       /* Dreg{dst} = Dreg{src0} + Dreg{src1}; */
 //      SET_DREG (dst, add32 (cpu, DREG (src0), DREG (src1), 1, 0));
-      astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
-      tcg_gen_add_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+      tcg_gen_add_tl(tmp, cpu_dreg[src0], cpu_dreg[src1]);
+      astat_queue_state3(dc, ASTAT_OP_ADD32, tmp, cpu_dreg[src0], cpu_dreg[src1]);
+      tcg_gen_mov_tl(cpu_dreg[dst], tmp);
     }
   else if (opc == 1)
     {
       /* Dreg{dst} = Dreg{src0} - Dreg{src1}; */
 //      SET_DREG (dst, sub32 (cpu, DREG (src0), DREG (src1), 1, 0, 0));
-      astat_queue_state3(dc, ASTAT_OP_SUB32, cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
-      tcg_gen_sub_tl(cpu_dreg[dst], cpu_dreg[src0], cpu_dreg[src1]);
+      tcg_gen_sub_tl(tmp, cpu_dreg[src0], cpu_dreg[src1]);
+      astat_queue_state3(dc, ASTAT_OP_SUB32, tmp, cpu_dreg[src0], cpu_dreg[src1]);
+      tcg_gen_mov_tl(cpu_dreg[dst], tmp);
     }
   else if (opc == 2)
     {
@@ -2729,17 +2733,15 @@ decode_COMP3op_0 (DisasContext *dc, bu16 iw0)
     }
   else if (opc == 6 || opc == 7)
     {
-      TCGv tmp;
       TRACE_INSN (cpu, "P%i = P%i + P%i << 0x%i;", dst, src0, src1, opc - 5);
 //      SET_PREG (dst, PREG (src0) + (PREG (src1) << (opc - 5)1));
       /* The dst/src0/src1 might all be the same register, so we need
          the temp here to avoid clobbering source values too early.
          This could be optimized a little, but for now we'll leave it.  */
-      tmp = tcg_temp_local_new();
       tcg_gen_shli_tl(tmp, cpu_preg[src1], (opc - 5));
       tcg_gen_add_tl(cpu_preg[dst], cpu_preg[src0], tmp);
-      tcg_temp_free(tmp);
     }
+  tcg_temp_free(tmp);
 }
 
 static void
