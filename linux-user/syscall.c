@@ -5414,15 +5414,33 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             ret = get_errno(settimeofday(&tv, NULL));
         }
         break;
-#ifdef TARGET_NR_select
+#if defined(TARGET_NR_select) || defined(TARGET_NR_pselect6)
+# ifdef TARGET_NR_select
     case TARGET_NR_select:
+# endif
+# ifdef TARGET_NR_pselect6
+    case TARGET_NR_pselect6:
+# endif
         {
             struct target_sel_arg_struct *sel;
             abi_ulong inp, outp, exp, tvp;
             long nsel;
+            sigset_t origmask;
 
             if (!lock_user_struct(VERIFY_READ, sel, arg1, 1))
                 goto efault;
+
+            if (num == TARGET_NR_pselect6) {
+                sigset_t set;
+                abi_ulong mask;
+
+                /* XXX: convert arg5 timespec into timeval */
+
+                mask = arg6;
+                target_to_host_old_sigset(&set, &mask);
+                sigprocmask(SIG_SETMASK, &set, &origmask);
+            }
+
             nsel = tswapl(sel->n);
             inp = tswapl(sel->inp);
             outp = tswapl(sel->outp);
@@ -5430,12 +5448,11 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             tvp = tswapl(sel->tvp);
             unlock_user_struct(sel, arg1, 0);
             ret = do_select(nsel, inp, outp, exp, tvp);
+
+            if (num == TARGET_NR_pselect6)
+                 sigprocmask(SIG_SETMASK, &origmask, NULL);
         }
         break;
-#endif
-#ifdef TARGET_NR_pselect6
-    case TARGET_NR_pselect6:
-	    goto unimplemented_nowarn;
 #endif
     case TARGET_NR_symlink:
         {
