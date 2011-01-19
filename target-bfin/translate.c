@@ -768,6 +768,20 @@ static void gen_astat_store(DisasContext *dc, TCGv reg)
 
 static void interp_insn_bfin(DisasContext *dc);
 
+static void check_breakpoint(CPUState *env, DisasContext *dc)
+{
+	CPUBreakpoint *bp;
+
+	if (unlikely(!QTAILQ_EMPTY(&env->breakpoints))) {
+		QTAILQ_FOREACH(bp, &env->breakpoints, entry) {
+			if (bp->pc == dc->pc) {
+				cec_exception(dc, EXCP_DEBUG);
+				dc->is_jmp = DISAS_UPDATE;
+			 }
+		}
+	}
+}
+
 static void
 gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
                                int search_pc)
@@ -812,7 +826,7 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 		if ((dc->pc & 0xFFFFFF00) == 0x400) {
 		}
 #endif
-//		check_breakpoint(env, dc);
+		check_breakpoint(env, dc);
 
 		if (search_pc) {
 			j = gen_opc_ptr - gen_opc_buf;
@@ -848,7 +862,6 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
 		gen_io_end();
 
 	if (unlikely(env->singlestep_enabled)) {
-abort();
 		cec_exception(dc, EXCP_DEBUG);
 //		if (dc->is_jmp == DISAS_NEXT)
 //			tcg_gen_movi_tl(cpu_pc, dc->pc);
