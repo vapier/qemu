@@ -1416,7 +1416,8 @@ decode_macfunc (DisasContext *dc, int which, int op, int h0, int h1, int src0,
 		int src1, int mmod, int MM, int fullword, bu32 *overflow)
 {
   TCGv_i64 acc;
-  bu32 sat = 0, tsat;
+//  bu32 sat = 0,
+  bu32 tsat;
 
   /* Sign extend accumulator if necessary, otherwise unsigned */
   if (mmod == 0 || mmod == M_T || mmod == M_IS || mmod == M_ISS2 || mmod == M_S2RND || mmod == M_IH || mmod == M_W32)
@@ -1923,37 +1924,43 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
 
   if (opc > 4)
     {
-/*
-      bs64 acc0 = get_extended_acc (cpu, 0);
-      bs64 acc1 = get_extended_acc (cpu, 1);
-      bs64 diff = acc0 - acc1;
+//      bs64 acc0 = get_extended_acc (cpu, 0);
+//      bs64 acc1 = get_extended_acc (cpu, 1);
+//      bs64 diff = acc0 - acc1;
+      TCGv_i64 tmp64;
 
       if (x != 0 || y != 0)
 	illegal_instruction (dc);
 
+      tmp64 = tcg_temp_new_i64();
       if (opc == 5 && I == 0 && G == 0)
 	{
 	  TRACE_INSN (cpu, "CC = A0 == A1;");
-	  SET_CCREG (acc0 == acc1);
+//	  SET_CCREG (acc0 == acc1);
+	  tcg_gen_setcond_i64(TCG_COND_EQ, tmp64, cpu_areg[0], cpu_areg[1]);
 	}
       else if (opc == 6 && I == 0 && G == 0)
 	{
 	  TRACE_INSN (cpu, "CC = A0 < A1");
-	  SET_CCREG (acc0 < acc1);
+//	  SET_CCREG (acc0 < acc1);
+	  tcg_gen_setcond_i64(TCG_COND_LT, tmp64, cpu_areg[0], cpu_areg[1]);
 	}
       else if (opc == 7 && I == 0 && G == 0)
 	{
 	  TRACE_INSN (cpu, "CC = A0 <= A1");
-	  SET_CCREG (acc0 <= acc1);
+//	  SET_CCREG (acc0 <= acc1);
+	  tcg_gen_setcond_i64(TCG_COND_LE, tmp64, cpu_areg[0], cpu_areg[1]);
 	}
       else
 	illegal_instruction (dc);
+      tcg_gen_trunc_i64_i32(cpu_cc, tmp64);
+      tcg_temp_free_i64(tmp64);
 
+/*
       SET_ASTATREG (az, diff == 0);
       SET_ASTATREG (an, diff < 0);
       SET_ASTATREG (ac0, (bu40)acc1 <= (bu40)acc0);
 */
-      unhandled_instruction (dc, "CC = A# cmp A#");
     }
   else
     {
@@ -3891,7 +3898,7 @@ decode_dsp32mac_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   int h01  = ((iw1 >> DSP32Mac_h01_bits) & DSP32Mac_h01_mask);
 
 //  bu32 res = DREG (dst);
-  bu32 v_i = 0, zero = 0;
+  bu32 v_i = 0; //, zero = 0;
   TCGv res;
 
   TRACE_EXTRACT (cpu, "%s: M:%i mmod:%i MM:%i P:%i w1:%i op1:%i h01:%i h11:%i "
@@ -3949,6 +3956,7 @@ decode_dsp32mac_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	      gen_mov_h_tl(res, res1);
 	    }
 	}
+      tcg_temp_free(res1);
 //unhandled_instruction (dc, "dsp32mac 1");
     }
   if (w0 == 1 || op0 != 3)
@@ -3969,6 +3977,7 @@ decode_dsp32mac_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 	      gen_mov_l_tl(res, res0);
 	    }
 	}
+      tcg_temp_free(res0);
 //unhandled_instruction (dc, "dsp32mac 2");
     }
 
