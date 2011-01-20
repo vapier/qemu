@@ -184,8 +184,8 @@ void cpu_dump_state(CPUState *env, FILE *f,
                     int (*cpu_fprintf)(FILE *f, const char *fmt, ...),
                     int flags)
 {
-	uint64_t iw;
-	target_ulong len;
+//	uint64_t iw;
+//	target_ulong len;
 
 	cpu_fprintf(f, "              SYSCFG: %04lx   SEQSTAT: %08x\n",
 	            env->syscfg, env->seqstat);

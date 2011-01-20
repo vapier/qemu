@@ -6164,53 +6164,97 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
       STORE (DREG (dst0), (val0 << 16) | val1);
     }
+#endif
   else if (sop == 2 && sopcde == 1 && bit8 == 1)
     {
       int count = imm5 (newimmag);
-      bu16 val0 = DREG (src1) & 0xFFFF;
-      bu16 val1 = DREG (src1) >> 16;
-      bu32 astat;
+//      bu16 val0 = DREG (src1) & 0xFFFF;
+//      bu16 val1 = DREG (src1) >> 16;
+//      bu32 astat;
 
       TRACE_INSN (cpu, "R%i = R%i >> %i (V);", dst0, src1, count);
+/*
       val0 = lshiftrt (cpu, val0, count, 16);
       astat = ASTAT;
       val1 = lshiftrt (cpu, val1, count, 16);
       SET_ASTAT (ASTAT | astat);
 
       STORE (DREG (dst0), val0 | (val1 << 16));
+*/
+      if (count > 0 && count <= 15)
+	{
+	  tcg_gen_shri_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+	  tcg_gen_andi_tl(cpu_dreg[dst0], cpu_dreg[dst0],
+			  0xffff0000 | ((1 << (16 - count)) - 1));
+	}
+      else if (count)
+	tcg_gen_movi_tl(cpu_dreg[dst0], 0);
     }
   else if (sop == 2 && sopcde == 1 && bit8 == 0)
     {
       int count = imm5 (immag);
-      bu16 val0 = DREG (src1) & 0xFFFF;
-      bu16 val1 = DREG (src1) >> 16;
-      bu32 astat;
+//      bu16 val0 = DREG (src1) & 0xFFFF;
+//      bu16 val1 = DREG (src1) >> 16;
+//      bu32 astat;
 
       TRACE_INSN (cpu, "R%i = R%i << %i (V);", dst0, src1, count);
+/*
       val0 = lshift (cpu, val0, count, 16, 0);
       astat = ASTAT;
       val1 = lshift (cpu, val1, count, 16, 0);
       SET_ASTAT (ASTAT | astat);
 
       STORE (DREG (dst0), val0 | (val1 << 16));
+*/
+      /* XXX: No ASTAT handling */
+      if (count > 0 && count <= 15)
+	{
+	  tcg_gen_shli_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+	  tcg_gen_andi_tl(cpu_dreg[dst0], cpu_dreg[dst0],
+			  ~(((1 << count) - 1) << 16));
+	}
+      else if (count)
+	tcg_gen_movi_tl(cpu_dreg[dst0], 0);
     }
   else if (sopcde == 1 && (sop == 0  || (sop == 1 && bit8 == 1)))
     {
       int count = uimm5 (newimmag);
-      bu16 val0 = DREG (src1) & 0xFFFF;
-      bu16 val1 = DREG (src1) >> 16;
-      bu32 astat;
+//      bu16 val0 = DREG (src1) & 0xFFFF;
+//      bu16 val1 = DREG (src1) >> 16;
+//      bu32 astat;
 
       TRACE_INSN (cpu, "R%i = R%i >>> %i %s;", dst0, src1, count,
 		  sop == 0 ? "(V)" : "(V,S)");
 
+      if (sop == 1)
+	unhandled_instruction (dc, "ashiftrt (S)");
+
+/*
       val0 = ashiftrt (cpu, val0, count, 16);
       astat = ASTAT;
       val1 = ashiftrt (cpu, val1, count, 16);
       SET_ASTAT (ASTAT | astat);
 
       STORE (DREG (dst0), REG_H_L (val1 << 16, val0));
+*/
+      /* XXX: No ASTAT handling */
+      if (count > 0 && count <= 15)
+	{
+	  tmp = tcg_temp_new();
+	  tcg_gen_ext16s_tl(tmp, cpu_dreg[src1]);
+	  tcg_gen_sari_tl(tmp, tmp, count);
+	  tcg_gen_andi_tl(tmp, tmp, 0xffff);
+	  tcg_gen_sari_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+	  tcg_gen_andi_tl(cpu_dreg[dst0], cpu_dreg[dst0], 0xffff0000);
+	  tcg_gen_or_tl(cpu_dreg[dst0], cpu_dreg[dst0], tmp);
+	  tcg_temp_free(tmp);
+	}
+      else if (count)
+	{
+	  unhandled_instruction (dc, "ashiftrt (S)");
+	}
     }
+#if 0
   else if (sop == 1 && sopcde == 2)
     {
       int count = imm6 (immag);
