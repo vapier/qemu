@@ -95,7 +95,16 @@ typedef struct CPUBFINState {
 	uint32_t mreg[4];
 	uint32_t breg[4];
 	uint32_t lreg[4];
-	uint32_t axreg[2], awreg[2];
+//	uint32_t axreg[2], awreg[2];
+/*	union {
+		uint64_t a;
+		struct {
+			uint32_t x;
+			uint32_t w;
+		};
+	} areg[2];
+*/
+	uint64_t areg[2];
 	uint32_t rets;
 	uint32_t lcreg[2], ltreg[2], lbreg[2];
 	uint32_t cycles[2];

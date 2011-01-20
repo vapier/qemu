@@ -1484,15 +1484,11 @@ static int cpu_gdb_read_register(CPUState *env, uint8_t *mem_buf, int n)
             GET_REGL(env->breg[n - BFIN_B0_REGNUM]); break;
         case BFIN_L0_REGNUM ... BFIN_L3_REGNUM:
             GET_REGL(env->lreg[n - BFIN_L0_REGNUM]); break;
-        case BFIN_A0_DOT_X_REGNUM: GET_REGL(env->axreg[0]); break;
-        case BFIN_A0_DOT_W_REGNUM: GET_REGL(env->awreg[0]); break;
-        case BFIN_A1_DOT_X_REGNUM: GET_REGL(env->axreg[1]); break;
-        case BFIN_A1_DOT_W_REGNUM: GET_REGL(env->awreg[1]); break;
-        case BFIN_ASTAT_REGNUM: {
-            uint32_t astat = bfin_astat_read(env);
-            GET_REGL(astat);
-            break;
-        }
+        case BFIN_A0_DOT_X_REGNUM: GET_REGL((env->areg[0] >> 32) & 0xff); break;
+        case BFIN_A0_DOT_W_REGNUM: GET_REGL(env->areg[0]); break;
+        case BFIN_A1_DOT_X_REGNUM: GET_REGL((env->areg[1] >> 32) & 0xff); break;
+        case BFIN_A1_DOT_W_REGNUM: GET_REGL(env->areg[1]); break;
+        case BFIN_ASTAT_REGNUM: GET_REGL(bfin_astat_read(env)); break;
         case BFIN_RETS_REGNUM: GET_REGL(env->rets); break;
         case BFIN_LC0_REGNUM: GET_REGL(env->lcreg[0]); break;
         case BFIN_LT0_REGNUM: GET_REGL(env->ltreg[0]); break;
@@ -1534,10 +1530,18 @@ static int cpu_gdb_write_register(CPUState *env, uint8_t *mem_buf, int n)
             env->breg[n - BFIN_B0_REGNUM] = tmpl; break;
         case BFIN_L0_REGNUM ... BFIN_L3_REGNUM:
             env->lreg[n - BFIN_L0_REGNUM] = tmpl; break;
-        case BFIN_A0_DOT_X_REGNUM: env->axreg[0] = tmpl; break;
-        case BFIN_A0_DOT_W_REGNUM: env->awreg[0] = tmpl; break;
-        case BFIN_A1_DOT_X_REGNUM: env->axreg[1] = tmpl; break;
-        case BFIN_A1_DOT_W_REGNUM: env->awreg[1] = tmpl; break;
+        case BFIN_A0_DOT_X_REGNUM:
+            env->areg[0] = (env->areg[0] & 0xffffffff) | ((uint64_t)tmpl << 32);
+            break;
+        case BFIN_A0_DOT_W_REGNUM:
+            env->areg[0] = (env->areg[0] & ~0xffffffff) | tmpl;
+            break;
+        case BFIN_A1_DOT_X_REGNUM:
+            env->areg[1] = (env->areg[1] & 0xffffffff) | ((uint64_t)tmpl << 32);
+            break;
+        case BFIN_A1_DOT_W_REGNUM:
+            env->areg[1] = (env->areg[1] & ~0xffffffff) | tmpl;
+            break;
         case BFIN_ASTAT_REGNUM: bfin_astat_write(env, tmpl); break;
         case BFIN_RETS_REGNUM: env->rets = tmpl; break;
         case BFIN_LC0_REGNUM: env->lcreg[0] = tmpl; break;

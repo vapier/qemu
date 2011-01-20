@@ -37,7 +37,8 @@ static TCGv cpu_ireg[4];
 static TCGv cpu_mreg[4];
 static TCGv cpu_breg[4];
 static TCGv cpu_lreg[4];
-static TCGv cpu_axreg[2], cpu_awreg[2];
+static TCGv_i64 cpu_areg[2];
+//static TCGv cpu_axreg[2], cpu_awreg[2];
 static TCGv cpu_rets;
 static TCGv cpu_lcreg[2], cpu_ltreg[2], cpu_lbreg[2];
 static TCGv cpu_cycles[2];
@@ -116,16 +117,32 @@ CPUState *cpu_init(const char *cpu_model)
 	cpu_astat_arg[2] = tcg_global_mem_new(TCG_AREG0,
 		offsetof(CPUState, astat_arg[2]), "astat_arg[2]");
 
+	cpu_areg[0] = tcg_global_mem_new_i64(TCG_AREG0,
+		offsetof(CPUState, areg[0]), "A0");
+	cpu_areg[1] = tcg_global_mem_new_i64(TCG_AREG0,
+		offsetof(CPUState, areg[1]), "A1");
+/*
+	cpu_axreg[0] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, areg[0].x), greg_names[32]);
+	cpu_axreg[1] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, areg[1].x), greg_names[34]);
+	cpu_awreg[0] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, areg[0].w), greg_names[33]);
+	cpu_awreg[1] = tcg_global_mem_new(TCG_AREG0,
+		offsetof(CPUState, areg[1].w), greg_names[35]);
+*/
+//"A1");
+
 	bfin_tcg_new_set(dreg, 0);
 	bfin_tcg_new_set(preg, 8);
 	bfin_tcg_new_set(ireg, 16);
 	bfin_tcg_new_set(mreg, 20);
 	bfin_tcg_new_set(breg, 24);
 	bfin_tcg_new_set(lreg, 28);
-	bfin_tcg_new(axreg[0], 32);
-	bfin_tcg_new(awreg[0], 33);
-	bfin_tcg_new(axreg[1], 34);
-	bfin_tcg_new(awreg[1], 35);
+//	bfin_tcg_new(axreg[0], 32);
+//	bfin_tcg_new(awreg[0], 33);
+//	bfin_tcg_new(axreg[1], 34);
+//	bfin_tcg_new(awreg[1], 35);
 	bfin_tcg_new(rets, 39);
 	bfin_tcg_new(lcreg[0], 48);
 	bfin_tcg_new(ltreg[0], 49);
@@ -213,8 +230,10 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	            env->breg[2], env->lreg[2], env->mreg[2], env->ireg[2]);
 	cpu_fprintf(f, " B3 : %08x   L3 : %08x   M3 : %08x   I3 : %08x\n",
 	            env->breg[3], env->lreg[3], env->mreg[3], env->ireg[3]);
-	cpu_fprintf(f, "A0.w: %08x  A0.x: %08x  A1.w: %08x  A1.x: %08x\n",
-	            env->awreg[0], env->axreg[0], env->awreg[1], env->axreg[1]);
+//	cpu_fprintf(f, "A0.w: %08x  A0.x: %08x  A1.w: %08x  A1.x: %08x\n",
+//	            env->areg[0].w, env->areg[0].x, env->areg[1].w, env->areg[1].x);
+	cpu_fprintf(f, "  A0: %010x                 A1: %010x\n",
+	            env->areg[0], env->areg[1]);
 	cpu_fprintf(f, " USP: %08x ASTAT: %08x   CC : %08x\n",
 	            env->uspreg, bfin_astat_read(env), env->astat[ASTAT_CC]);
 	cpu_fprintf(f, "ASTAT BITS: ");
