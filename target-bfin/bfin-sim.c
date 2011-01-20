@@ -5016,7 +5016,6 @@ unhandled_instruction (dc, "A0 += A1 (W32)");
 
       astat_queue_state3(dc, ASTAT_OP_SUB32, cpu_dreg[dst0], cpu_dreg[src0], cpu_dreg[src1]);
     }
-#if 0
   else if (aop == 2 && aopcde == 4)
     {
       TRACE_INSN (cpu, "R%i = R%i + R%i, R%i = R%i - R%i%s;",
@@ -5025,9 +5024,13 @@ unhandled_instruction (dc, "A0 += A1 (W32)");
       if (dst0 == dst1)
 	illegal_instruction_combination (dc);
 
-      STORE (DREG (dst1), add32 (cpu, DREG (src0), DREG (src1), 1, s));
-      STORE (DREG (dst0), sub32 (cpu, DREG (src0), DREG (src1), 1, s, 1));
+//      STORE (DREG (dst1), add32 (cpu, DREG (src0), DREG (src1), 1, s));
+      tcg_gen_add_tl(cpu_dreg[dst1], cpu_dreg[src0], cpu_dreg[src1]);
+//      STORE (DREG (dst0), sub32 (cpu, DREG (src0), DREG (src1), 1, s, 1));
+      tcg_gen_sub_tl(cpu_dreg[dst0], cpu_dreg[src0], cpu_dreg[src1]);
+      /* XXX: Missing ASTAT updates */
     }
+#if 0
   else if ((aop == 0 || aop == 1) && aopcde == 17)
     {
       bs40 acc0 = get_extended_acc (cpu, 0);
