@@ -5414,32 +5414,15 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             ret = get_errno(settimeofday(&tv, NULL));
         }
         break;
-#if defined(TARGET_NR_select) || defined(TARGET_NR_pselect6)
-# ifdef TARGET_NR_select
+#ifdef TARGET_NR_select
     case TARGET_NR_select:
-# endif
-# ifdef TARGET_NR_pselect6
-    case TARGET_NR_pselect6:
-# endif
         {
             struct target_sel_arg_struct *sel;
             abi_ulong inp, outp, exp, tvp;
             long nsel;
-            sigset_t origmask;
 
             if (!lock_user_struct(VERIFY_READ, sel, arg1, 1))
                 goto efault;
-
-            if (num == TARGET_NR_pselect6) {
-                sigset_t set;
-                abi_ulong mask;
-
-                /* XXX: convert arg5 timespec into timeval */
-
-                mask = arg6;
-                target_to_host_old_sigset(&set, &mask);
-                sigprocmask(SIG_SETMASK, &set, &origmask);
-            }
 
             nsel = tswapl(sel->n);
             inp = tswapl(sel->inp);
@@ -5448,9 +5431,6 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             tvp = tswapl(sel->tvp);
             unlock_user_struct(sel, arg1, 0);
             ret = do_select(nsel, inp, outp, exp, tvp);
-
-            if (num == TARGET_NR_pselect6)
-                 sigprocmask(SIG_SETMASK, &origmask, NULL);
         }
         break;
 #endif
@@ -6242,9 +6222,32 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         }
         break;
 #endif /* TARGET_NR_getdents64 */
-#ifdef TARGET_NR__newselect
+#if defined(TARGET_NR__newselect) || defined(TARGET_NR_pselect6)
+# ifdef TARGET_NR__newselect
     case TARGET_NR__newselect:
-        ret = do_select(arg1, arg2, arg3, arg4, arg5);
+# endif
+# ifdef TARGET_NR_pselect6
+    case TARGET_NR_pselect6:
+# endif
+        {
+            sigset_t origmask;
+
+            if (num == TARGET_NR_pselect6) {
+                sigset_t set;
+                abi_ulong mask;
+
+                /* XXX: convert arg5 timespec into timeval */
+
+                mask = arg6;
+                target_to_host_old_sigset(&set, &mask);
+                sigprocmask(SIG_SETMASK, &set, &origmask);
+            }
+
+            ret = do_select(arg1, arg2, arg3, arg4, arg5);
+
+            if (num == TARGET_NR_pselect6)
+                 sigprocmask(SIG_SETMASK, &origmask, NULL);
+        }
         break;
 #endif
 #if defined(TARGET_NR_poll) || defined(TARGET_NR_ppoll)
