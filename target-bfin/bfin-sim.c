@@ -461,137 +461,70 @@ setflags_logical (DisasContext *dc, TCGv reg)
   SET_ASTATREG (ac0, 0);
   SET_ASTATREG (v, 0);
 }
-
-static bu32
-add_brev (bu32 addend1, bu32 addend2)
-{
-  bu32 mask, b, r;
-  int i, cy;
-
-  mask = 0x80000000;
-  r = 0;
-  cy = 0;
-
-  for (i = 31; i >= 0; --i)
-    {
-      b = ((addend1 & mask) >> i) + ((addend2 & mask) >> i);
-      b += cy;
-      cy = b >> 1;
-      b &= 1;
-      r |= b << i;
-      mask >>= 1;
-    }
-
-  return r;
-}
+#endif
 
 /* This is a bit crazy, but we want to simulate the hardware behavior exactly
    rather than worry about the circular buffers being used correctly.  Which
    isn't to say there isn't room for improvement here, just that we want to
    be conservative.  See also dagsub().  */
-static bu32
-dagadd (DisasContext *dc, int dagno, bs32 M)
+static void
+dagadd(DisasContext *dc, int dagno, TCGv M)
 {
-  bu64 i = IREG (dagno);
-  bu64 l = LREG (dagno);
-  bu64 b = BREG (dagno);
-  bu64 m = (bu32)M;
+  int l, endl;
 
-  bu64 LB, IM, IML;
-  bu32 im32, iml32, lb32, res;
-  bu64 msb, car;
+  /* Optimize for when circ buffers are not used */
+  l = gen_new_label();
+  endl = gen_new_label();
+  tcg_gen_brcondi_tl(TCG_COND_NE, cpu_lreg[dagno], 0, l);
+  tcg_gen_add_tl(cpu_ireg[dagno], cpu_ireg[dagno], M);
+  tcg_gen_br(endl);
+  gen_set_label(l);
 
-  /* A naïve implementation that mostly works:
-  res = i + m;
-  if (l && res >= b + l)
-    res -= l;
-  STORE (IREG (dagno), res);
-   */
+  /* Fallback to the big guns */
+  gen_helper_dagadd(cpu_ireg[dagno], cpu_ireg[dagno],
+	cpu_lreg[dagno], cpu_breg[dagno], M);
 
-  msb = (bu64)1 << 31;
-  car = (bu64)1 << 32;
-
-  IM = i + m;
-  im32 = IM;
-  LB = l + b;
-  lb32 = LB;
-
-  if (M < 0)
-    {
-      IML = i + m + l;
-      iml32 = IML;
-      if ((i & msb) || (IM & car))
-	res = (im32 < b) ? iml32 : im32;
-      else
-	res = (im32 < b) ? im32 : iml32;
-    }
-  else
-    {
-      IML = i + m - l;
-      iml32 = IML;
-      if ((IM & car) == (LB & car))
-	res = (im32 < lb32) ? im32 : iml32;
-      else
-	res = (im32 < lb32) ? iml32 : im32;
-    }
-
-  STORE (IREG (dagno), res);
-  return res;
+  gen_set_label(endl);
+}
+static void
+dagaddi(DisasContext *dc, int dagno, uint32_t M)
+{
+  TCGv m = tcg_temp_local_new();
+  tcg_gen_movi_tl(m, M);
+  dagadd(dc, dagno, m);
+  tcg_temp_free(m);
 }
 
 /* See dagadd() notes above.  */
-static bu32
-dagsub (DisasContext *dc, int dagno, bs32 M)
+static void
+dagsub(DisasContext *dc, int dagno, TCGv M)
 {
-  bu64 i = IREG (dagno);
-  bu64 l = LREG (dagno);
-  bu64 b = BREG (dagno);
-  bu64 m = (bu32)M;
+  int l, endl;
 
-  bu64 mbar = (bu32)(~m + 1);
-  bu64 LB, IM, IML;
-  bu32 b32, im32, iml32, lb32, res;
-  bu64 msb, car;
+  /* Optimize for when circ buffers are not used */
+  l = gen_new_label();
+  endl = gen_new_label();
+  tcg_gen_brcondi_tl(TCG_COND_NE, cpu_lreg[dagno], 0, l);
+  tcg_gen_sub_tl(cpu_ireg[dagno], cpu_ireg[dagno], M);
+  tcg_gen_br(endl);
+  gen_set_label(l);
 
-  /* A naïve implementation that mostly works:
-  res = i - m;
-  if (l && newi < b)
-    newi += l;
-  STORE (IREG (dagno), newi);
-   */
+  /* Fallback to the big guns */
+  gen_helper_dagsub(cpu_ireg[dagno], cpu_ireg[dagno],
+	cpu_lreg[dagno], cpu_breg[dagno], M);
 
-  msb = (bu64)1 << 31;
-  car = (bu64)1 << 32;
-
-  IM = i + mbar;
-  im32 = IM;
-  LB = l + b;
-  lb32 = LB;
-
-  if (M < 0)
-    {
-      IML = i + mbar - l;
-      iml32 = IML;
-      if (!!((i & msb) && (IM & car)) == !!(LB & car))
-	res = (im32 < lb32) ? im32 : iml32;
-      else
-	res = (im32 < lb32) ? iml32 : im32;
-    }
-  else
-    {
-      IML = i + mbar + l;
-      iml32 = IML;
-      b32 = b;
-      if (M == 0 || IM & car)
-	res = (im32 < b32) ? iml32 : im32;
-      else
-	res = (im32 < b32) ? im32 : iml32;
-    }
-
-  STORE (IREG (dagno), res);
-  return res;
+  gen_set_label(endl);
+}
+static void
+dagsubi(DisasContext *dc, int dagno, uint32_t M)
+{
+  TCGv m = tcg_temp_local_new();
+  tcg_gen_movi_tl(m, M);
+  dagsub(dc, dagno, m);
+  tcg_temp_free(m);
 }
 
+#if 0
 static bu40
 ashiftrt (DisasContext *dc, bu40 val, int cnt, int size)
 {
@@ -1442,7 +1375,7 @@ decode_macfunc (DisasContext *dc, int which, int op, int h0, int h1, int src0,
 				  MM, &tsat);
       TCGv_i64 res64;
 
-      res64 = tcg_temp_new_i64();
+      res64 = tcg_temp_local_new_i64();
       tcg_gen_extu_i32_i64(res64, res);
 
       /* Perform accumulation.  */
@@ -1534,7 +1467,7 @@ decode_macfunc (DisasContext *dc, int which, int op, int h0, int h1, int src0,
 */
 
 //  return extract_mult (cpu, acc, mmod, MM, fullword, overflow);
-  TCGv tmp = tcg_temp_new();
+  TCGv tmp = tcg_temp_local_new();
   tcg_gen_trunc_i64_i32(tmp, acc);
   return tmp;
 }
@@ -2524,46 +2457,29 @@ decode_PTR2op_0 (DisasContext *dc, bu16 iw0)
   TRACE_EXTRACT (cpu, "%s: opc:%i src:%i dst:%i", __func__, opc, src, dst);
 
   if (opc == 0)
-    {
-      TRACE_INSN (cpu, "P%i -= P%i", dst, src);
-//      SET_PREG (dst, PREG (dst) - PREG (src));
-      tcg_gen_sub_tl(cpu_preg[dst], cpu_preg[dst], cpu_preg[src]);
-    }
+    /* Preg{dst} -= Preg{src}; */
+    tcg_gen_sub_tl(cpu_preg[dst], cpu_preg[dst], cpu_preg[src]);
   else if (opc == 1)
-    {
-      TRACE_INSN (cpu, "P%i = P%i << 2", dst, src);
-//      SET_PREG (dst, PREG (src) << 2);
-      tcg_gen_shli_tl(cpu_preg[dst], cpu_preg[src], 2);
-    }
+    /* Preg{dst} = Preg{src} << 2; */
+    tcg_gen_shli_tl(cpu_preg[dst], cpu_preg[src], 2);
   else if (opc == 3)
-    {
-      TRACE_INSN (cpu, "P%i = P%i >> 2", dst, src);
-//      SET_PREG (dst, PREG (src) >> 2);
-      tcg_gen_shri_tl(cpu_preg[dst], cpu_preg[src], 2);
-    }
+    /* Preg{dst} = Preg{src} >> 2; */
+    tcg_gen_shri_tl(cpu_preg[dst], cpu_preg[src], 2);
   else if (opc == 4)
-    {
-      TRACE_INSN (cpu, "P%i = P%i >> 1", dst, src);
-//      SET_PREG (dst, PREG (src) >> 1);
-      tcg_gen_shri_tl(cpu_preg[dst], cpu_preg[src], 1);
-    }
+    /* Preg{dst} = Preg{src} >> 1; */
+    tcg_gen_shri_tl(cpu_preg[dst], cpu_preg[src], 1);
   else if (opc == 5)
-    {
-      TRACE_INSN (cpu, "P%i += P%i (BREV)", dst, src);
-//      SET_PREG (dst, add_brev (PREG (dst), PREG (src)));
-      illegal_instruction (dc);
-    }
+    /* Preg{dst} += Preg{src} (BREV); */
+    gen_helper_add_brev(cpu_preg[dst], cpu_preg[dst], cpu_preg[src]);
   else if (opc == 6)
     {
-      TRACE_INSN (cpu, "P%i = (P%i + P%i) << 1", dst, dst, src);
-//      SET_PREG (dst, (PREG (dst) + PREG (src)) << 1);
+      /* Preg{dst} = (Preg{dst} + Preg{src}) << 1; */
       tcg_gen_add_tl(cpu_preg[dst], cpu_preg[dst], cpu_preg[src]);
       tcg_gen_shli_tl(cpu_preg[dst], cpu_preg[dst], 1);
     }
   else if (opc == 7)
     {
-      TRACE_INSN (cpu, "P%i = (P%i + P%i) << 2", dst, dst, src);
-//      SET_PREG (dst, (PREG (dst) + PREG (src)) << 2);
+      /* Preg{dst} = (Preg{dst} + Preg{src}) << 2; */
       tcg_gen_add_tl(cpu_preg[dst], cpu_preg[dst], cpu_preg[src]);
       tcg_gen_shli_tl(cpu_preg[dst], cpu_preg[dst], 2);
     }
@@ -2971,24 +2887,14 @@ decode_dagMODim_0 (DisasContext *dc, bu16 iw0)
   TRACE_EXTRACT (cpu, "%s: br:%i op:%i m:%i i:%i", __func__, br, op, m, i);
 
   if (op == 0 && br == 1)
-    {
-      TRACE_INSN (cpu, "I%i += M%i (BREV);", i, m);
-//      SET_IREG (i, add_brev (IREG (i), MREG (m)));
-//      tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[i]);
-      unhandled_instruction (dc, "I# += M# (BREV);");
-    }
+    /* Ireg{i} += Mreg{m} (BREV); */
+    gen_helper_add_brev(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
   else if (op == 0)
-    {
-      TRACE_INSN (cpu, "I%i += M%i;", i, m);
-//      dagadd (cpu, i, MREG (m));
-      tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
-    }
+    /* Ireg{i} += Mreg{m}; */
+    dagadd (dc, i, cpu_mreg[m]);
   else if (op == 1 && br == 0)
-    {
-      TRACE_INSN (cpu, "I%i -= M%i;", i, m);
-//      dagsub (cpu, i, MREG (m));
-      tcg_gen_sub_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
-    }
+    /* Ireg{i} -= Mreg{m}; */
+    dagsub (dc, i, cpu_mreg[m]);
   /*else
     illegal_instruction (dc);*/
 }
@@ -3002,33 +2908,16 @@ decode_dagMODik_0 (DisasContext *dc, bu16 iw0)
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
   int i  = ((iw0 >> DagMODik_i_bits) & DagMODik_i_mask);
   int op = ((iw0 >> DagMODik_op_bits) & DagMODik_op_mask);
+  int mod = (op & 2) + 2;
 
   TRACE_EXTRACT (cpu, "%s: op:%i i:%i", __func__, op, i);
 
-  if (op == 0)
-    {
-      TRACE_INSN (cpu, "I%i += 2;", i);
-//      dagadd (cpu, i, 2);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 2);
-    }
-  else if (op == 1)
-    {
-      TRACE_INSN (cpu, "I%i -= 2;", i);
-//      dagsub (cpu, i, 2);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 2);
-    }
-  else if (op == 2)
-    {
-      TRACE_INSN (cpu, "I%i += 4;", i);
-//      dagadd (cpu, i, 4);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 4);
-    }
-  else if (op == 3)
-    {
-      TRACE_INSN (cpu, "I%i -= 4;", i);
-//      dagsub (cpu, i, 4);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 4);
-    }
+  if (op & 1)
+    /* Ireg{i} -= 2 or 4; */
+    dagsubi (dc, i, mod);
+  else
+    /* Ireg{i} += 2 or 4; */
+    dagaddi (dc, i, mod);
 }
 
 static void
@@ -3043,111 +2932,69 @@ decode_dspLDST_0 (DisasContext *dc, bu16 iw0)
   int W   = ((iw0 >> DspLDST_W_bits) & DspLDST_W_mask);
   int aop = ((iw0 >> DspLDST_aop_bits) & DspLDST_aop_mask);
   int reg = ((iw0 >> DspLDST_reg_bits) & DspLDST_reg_mask);
-//  bu32 addr;
   TCGv tmp;
 
   TRACE_EXTRACT (cpu, "%s: aop:%i m:%i i:%i reg:%i", __func__, aop, m, i, reg);
 
   if (aop == 0 && W == 0 && m == 0)
     {
-      TRACE_INSN (cpu, "R%i = [I%i++];", reg, i);
-/*
-      addr = IREG (i);
-      if (DIS_ALGN_EXPT & 0x1)
-	addr &= ~3;
-      dagadd (cpu, i, 4);
-      STORE (DREG (reg), GET_LONG (addr));
-*/
+      /* Dreg{reg} = [Ireg{i}++]; */
+      /* XXX: No DISALGNEXCPT support */
       tcg_gen_qemu_ld32u(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 4);
+      dagaddi (dc, i, 4);
     }
   else if (aop == 0 && W == 0 && m == 1)
     {
-      TRACE_INSN (cpu, "R%i.L = W[I%i++];", reg, i);
-/*
-      addr = IREG (i);
-      dagadd (cpu, i, 2);
-      STORE (DREG (reg), (DREG (reg) & 0xFFFF0000) | GET_WORD (addr));
-*/
+      /* Dreg_lo{reg} = W[Ireg{i}++]; */
       tmp = tcg_temp_new();
       tcg_gen_qemu_ld16u(tmp, cpu_ireg[i], dc->mem_idx);
       gen_mov_l_tl(cpu_dreg[reg], tmp);
       tcg_temp_free(tmp);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagaddi (dc, i, 2);
     }
   else if (aop == 0 && W == 0 && m == 2)
     {
-      TRACE_INSN (cpu, "R%i.H = W[I%i++];", reg, i);
-/*
-      addr = IREG (i);
-      dagadd (cpu, i, 2);
-      STORE (DREG (reg), (DREG (reg) & 0xFFFF) | (GET_WORD (addr) << 16));
-*/
+      /* Dreg_hi{reg} = W[Ireg{i}++]; */
       tmp = tcg_temp_new();
       tcg_gen_qemu_ld16u(tmp, cpu_ireg[i], dc->mem_idx);
       gen_mov_h_tl(cpu_dreg[reg], tmp);
       tcg_temp_free(tmp);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagaddi (dc, i, 2);
     }
   else if (aop == 1 && W == 0 && m == 0)
     {
-      TRACE_INSN (cpu, "R%i = [I%i--];", reg, i);
-/*
-      addr = IREG (i);
-      if (DIS_ALGN_EXPT & 0x1)
-	addr &= ~3;
-      dagsub (cpu, i, 4);
-      STORE (DREG (reg), GET_LONG (addr));
-*/
+      /* Dreg{reg} = [Ireg{i}--]; */
+      /* XXX: No DISALGNEXCPT support */
       tcg_gen_qemu_ld32u(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 4);
+      dagsubi (dc, i, 4);
     }
   else if (aop == 1 && W == 0 && m == 1)
     {
-      TRACE_INSN (cpu, "R%i.L = W[I%i--];", reg, i);
-/*
-      addr = IREG (i);
-      dagsub (cpu, i, 2);
-      STORE (DREG (reg), (DREG (reg) & 0xFFFF0000) | GET_WORD (addr));
-*/
+      /* Dreg_lo{reg} = W[Ireg{i}--]; */
       tmp = tcg_temp_new();
       tcg_gen_qemu_ld16u(tmp, cpu_ireg[i], dc->mem_idx);
       gen_mov_l_tl(cpu_dreg[reg], tmp);
       tcg_temp_free(tmp);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagsubi (dc, i, 2);
     }
   else if (aop == 1 && W == 0 && m == 2)
     {
-      TRACE_INSN (cpu, "R%i.H = W[I%i--];", reg, i);
-/*
-      addr = IREG (i);
-      dagsub (cpu, i, 2);
-      STORE (DREG (reg), (DREG (reg) & 0xFFFF) | (GET_WORD (addr) << 16));
-*/
+      /* Dreg_hi{reg} = W[Ireg{i}--]; */
       tmp = tcg_temp_new();
       tcg_gen_qemu_ld16u(tmp, cpu_ireg[i], dc->mem_idx);
       gen_mov_h_tl(cpu_dreg[reg], tmp);
       tcg_temp_free(tmp);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagsubi (dc, i, 2);
     }
   else if (aop == 2 && W == 0 && m == 0)
     {
-      TRACE_INSN (cpu, "R%i = [I%i];", reg, i);
-/*
-      addr = IREG (i);
-      if (DIS_ALGN_EXPT & 0x1)
-	addr &= ~3;
-      STORE (DREG (reg), GET_LONG (addr));
-*/
+      /* Dreg{reg} = [Ireg{i}]; */
+      /* XXX: No DISALGNEXCPT support */
       tcg_gen_qemu_ld32u(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
     }
   else if (aop == 2 && W == 0 && m == 1)
     {
-      TRACE_INSN (cpu, "R%i.L = W[I%i];", reg, i);
-/*
-      addr = IREG (i);
-      STORE (DREG (reg), (DREG (reg) & 0xFFFF0000) | GET_WORD (addr));
-*/
+      /* Dreg_lo{reg} = W[Ireg{i}]; */
       tmp = tcg_temp_new();
       tcg_gen_qemu_ld16u(tmp, cpu_ireg[i], dc->mem_idx);
       gen_mov_l_tl(cpu_dreg[reg], tmp);
@@ -3155,11 +3002,7 @@ decode_dspLDST_0 (DisasContext *dc, bu16 iw0)
     }
   else if (aop == 2 && W == 0 && m == 2)
     {
-      TRACE_INSN (cpu, "R%i.H = W[I%i];", reg, i);
-/*
-      addr = IREG (i);
-      STORE (DREG (reg), (DREG (reg) & 0xFFFF) | (GET_WORD (addr) << 16));
-*/
+      /* Dreg_hi{reg} = W[Ireg{i}]; */
       tmp = tcg_temp_new();
       tcg_gen_qemu_ld16u(tmp, cpu_ireg[i], dc->mem_idx);
       gen_mov_h_tl(cpu_dreg[reg], tmp);
@@ -3167,101 +3010,59 @@ decode_dspLDST_0 (DisasContext *dc, bu16 iw0)
     }
   else if (aop == 0 && W == 1 && m == 0)
     {
-      TRACE_INSN (cpu, "[I%i++] = R%i;", i, reg);
-/*
-      addr = IREG (i);
-      dagadd (cpu, i, 4);
-      PUT_LONG (addr, DREG (reg));
-*/
+      /* [Ireg{i}++] = Dreg{reg}; */
       tcg_gen_qemu_st32(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 4);
+      dagaddi (dc, i, 4);
     }
   else if (aop == 0 && W == 1 && m == 1)
     {
-      TRACE_INSN (cpu, "W[I%i++] = R%i.L;", i, reg);
-/*
-      addr = IREG (i);
-      dagadd (cpu, i, 2);
-      PUT_WORD (addr, DREG (reg));
-*/
+      /* W[Ireg{i}++] = Dreg_lo{reg}; */
       tcg_gen_qemu_st16(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagaddi (dc, i, 2);
     }
   else if (aop == 0 && W == 1 && m == 2)
     {
-      TRACE_INSN (cpu, "W[I%i++] = R%i.H;", i, reg);
-/*
-      addr = IREG (i);
-      dagadd (cpu, i, 2);
-      PUT_WORD (addr, DREG (reg) >> 16);
-*/
+      /* W[Ireg{i}++] = Dreg_hi{reg}; */
       tmp = tcg_temp_new();
       tcg_gen_shri_tl(tmp, cpu_dreg[reg], 16);
       tcg_gen_qemu_st16(tmp, cpu_ireg[i], dc->mem_idx);
       tcg_temp_free(tmp);
-      tcg_gen_addi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagaddi (dc, i, 2);
     }
   else if (aop == 1 && W == 1 && m == 0)
     {
-      TRACE_INSN (cpu, "[I%i--] = R%i;", i, reg);
-/*
-      addr = IREG (i);
-      dagsub (cpu, i, 4);
-      PUT_LONG (addr, DREG (reg));
-*/
+      /* [Ireg{i}--] = Dreg{reg}; */
       tcg_gen_qemu_st32(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 4);
+      dagsubi (dc, i, 4);
     }
   else if (aop == 1 && W == 1 && m == 1)
     {
-      TRACE_INSN (cpu, "W[I%i--] = R%i.L;", i, reg);
-/*
-      addr = IREG (i);
-      dagsub (cpu, i, 2);
-      PUT_WORD (addr, DREG (reg));
-*/
+      /* W[Ireg{i}--] = Dreg_lo{reg}; */
       tcg_gen_qemu_st16(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagsubi (dc, i, 2);
     }
   else if (aop == 1 && W == 1 && m == 2)
     {
-      TRACE_INSN (cpu, "W[I%i--] = R%i.H;", i, reg);
-/*
-      addr = IREG (i);
-      dagsub (cpu, i, 2);
-      PUT_WORD (addr, DREG (reg) >> 16);
-*/
+      /* W[Ireg{i}--] = Dreg_hi{reg}; */
       tmp = tcg_temp_new();
       tcg_gen_shri_tl(tmp, cpu_dreg[reg], 16);
       tcg_gen_qemu_st16(tmp, cpu_ireg[i], dc->mem_idx);
       tcg_temp_free(tmp);
-      tcg_gen_subi_tl(cpu_ireg[i], cpu_ireg[i], 2);
+      dagsubi (dc, i, 2);
     }
   else if (aop == 2 && W == 1 && m == 0)
     {
-      TRACE_INSN (cpu, "[I%i] = R%i;", i, reg);
-/*
-      addr = IREG (i);
-      PUT_LONG (addr, DREG (reg));
-*/
+      /* [Ireg{i}] = Dreg{reg}; */
       tcg_gen_qemu_st32(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
     }
   else if (aop == 2 && W == 1 && m == 1)
     {
-      TRACE_INSN (cpu, "W[I%i] = R%i.L;", i, reg);
-/*
-      addr = IREG (i);
-      PUT_WORD (addr, DREG (reg));
-*/
+      /* W[Ireg{i}] = Dreg_lo{reg}; */
       tcg_gen_qemu_st16(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
     }
   else if (aop == 2 && W == 1 && m == 2)
     {
-      TRACE_INSN (cpu, "W[I%i] = R%i.H;", i, reg);
-/*
-      addr = IREG (i);
-      PUT_WORD (addr, DREG (reg) >> 16);
-*/
+      /* W[Ireg{i}] = Dreg_hi{reg}; */
       tmp = tcg_temp_new();
       tcg_gen_shri_tl(tmp, cpu_dreg[reg], 16);
       tcg_gen_qemu_st16(tmp, cpu_ireg[i], dc->mem_idx);
@@ -3269,27 +3070,16 @@ decode_dspLDST_0 (DisasContext *dc, bu16 iw0)
     }
   else if (aop == 3 && W == 0)
     {
-      TRACE_INSN (cpu, "R%i = [I%i ++ M%i];", reg, i, m);
-/*
-      addr = IREG (i);
-      if (DIS_ALGN_EXPT & 0x1)
-	addr &= ~3;
-      dagadd (cpu, i, MREG (m));
-      STORE (DREG (reg), GET_LONG (addr));
-*/
+      /* Dreg{reg} = [Ireg{i} ++ Mreg{m}]; */
+      /* XXX: No DISALGNEXCPT support */
       tcg_gen_qemu_ld32u(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
+      dagadd (dc, i, cpu_mreg[m]);
     }
   else if (aop == 3 && W == 1)
     {
-      TRACE_INSN (cpu, "[I%i ++ M%i] = R%i;", i, m, reg);
-/*
-      addr = IREG (i);
-      dagadd (cpu, i, MREG (m));
-      PUT_LONG (addr, DREG (reg));
-*/
+      /* [Ireg{i} ++ Mreg{m}] = Dreg{reg}; */
       tcg_gen_qemu_st32(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
-      tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
+      dagadd (dc, i, cpu_mreg[m]);
     }
   /*else
     illegal_instruction (dc);*/
@@ -4958,11 +4748,11 @@ unhandled_instruction (dc, "A0 += A1 (W32)");
       STORE (AWREG (1), (s1H << 16) | (s1L & 0xFFFF));
       STORE (AXREG (1), 0);
     }
+#endif
   else if (aop == 3 && aopcde == 18)
-    {
-      TRACE_INSN (cpu, "DISALGNEXCPT");
-      DIS_ALGN_EXPT |= 1;
-    }
+    /* DISALGNEXCPT; */
+    unhandled_instruction (dc, "DISALGNEXCPT");
+#if 0
   else if ((aop == 0 || aop == 1) && aopcde == 20)
     {
       bu32 s0, s0L, s0H, s1, s1L, s1H;

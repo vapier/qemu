@@ -107,3 +107,107 @@ uint32_t helper_signbits_64(uint64_t val, uint32_t size)
 
     return count;
 }
+
+/* This is a bit crazy, but we want to simulate the hardware behavior exactly
+   rather than worry about the circular buffers being used correctly.  Which
+   isn't to say there isn't room for improvement here, just that we want to
+   be conservative.  See also dagsub().  */
+uint32_t helper_dagadd(uint32_t I, uint32_t L, uint32_t B, uint32_t M)
+{
+    uint64_t i = I;
+    uint64_t l = L;
+    uint64_t b = B;
+    uint64_t m = M;
+
+    uint64_t LB, IM, IML;
+    uint32_t im32, iml32, lb32, res;
+    uint64_t msb, car;
+
+    msb = (uint64_t)1 << 31;
+    car = (uint64_t)1 << 32;
+
+    IM = i + m;
+    im32 = IM;
+    LB = l + b;
+    lb32 = LB;
+
+    if ((int32_t)M < 0) {
+        IML = i + m + l;
+        iml32 = IML;
+        if ((i & msb) || (IM & car))
+            res = (im32 < b) ? iml32 : im32;
+        else
+            res = (im32 < b) ? im32 : iml32;
+    } else {
+        IML = i + m - l;
+        iml32 = IML;
+        if ((IM & car) == (LB & car))
+            res = (im32 < lb32) ? im32 : iml32;
+        else
+            res = (im32 < lb32) ? iml32 : im32;
+    }
+
+    return res;
+}
+
+/* See dagadd() notes above.  */
+uint32_t helper_dagsub(uint32_t I, uint32_t L, uint32_t B, uint32_t M)
+{
+    uint64_t i = I;
+    uint64_t l = L;
+    uint64_t b = B;
+    uint64_t m = M;
+
+    uint64_t mbar = (uint32_t)(~m + 1);
+    uint64_t LB, IM, IML;
+    uint32_t b32, im32, iml32, lb32, res;
+    uint64_t msb, car;
+
+    msb = (uint64_t)1 << 31;
+    car = (uint64_t)1 << 32;
+
+    IM = i + mbar;
+    im32 = IM;
+    LB = l + b;
+    lb32 = LB;
+
+    if ((int32_t)M < 0) {
+        IML = i + mbar - l;
+        iml32 = IML;
+        if (!!((i & msb) && (IM & car)) == !!(LB & car))
+            res = (im32 < lb32) ? im32 : iml32;
+        else
+            res = (im32 < lb32) ? iml32 : im32;
+    } else {
+        IML = i + mbar + l;
+        iml32 = IML;
+        b32 = b;
+        if (M == 0 || IM & car)
+            res = (im32 < b32) ? iml32 : im32;
+        else
+            res = (im32 < b32) ? im32 : iml32;
+    }
+
+    return res;
+}
+
+uint32_t helper_add_brev(uint32_t addend1, uint32_t addend2)
+{
+    uint32_t mask, b, r;
+    int i, cy;
+
+    mask = 0x80000000;
+    r = 0;
+    cy = 0;
+
+    for (i = 31; i >= 0; --i) {
+        b = ((addend1 & mask) >> i) + ((addend2 & mask) >> i);
+        b += cy;
+        cy = b >> 1;
+        b &= 1;
+        r |= b << i;
+        mask >>= 1;
+    }
+
+    return r;
+}
