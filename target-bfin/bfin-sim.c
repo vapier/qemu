@@ -4990,18 +4990,19 @@ unhandled_instruction (dc, "A0 += A1 (W32)");
 	}
 #endif
     }
-#if 0
   else if ((aop == 0 || aop == 1) && aopcde == 10)
     {
-      TCGv tmp;
       TRACE_INSN (cpu, "R%i.L = A%i.X;", dst0, aop);
 //      SET_DREG_L (dst0, (bs8)AXREG (aop));
       tmp = tcg_temp_new();
-      tcg_gen_trunc_i32_i64(tmp, cpu_areg[aop]);
+      tmp64 = tcg_temp_new_i64();
+      tcg_gen_shri_i64(tmp64, cpu_areg[aop], 32);
+      tcg_gen_trunc_i64_i32(tmp, tmp64);
+      tcg_temp_free_i64(tmp64);
+      tcg_gen_ext8s_tl(tmp, tmp);
       gen_mov_l_tl(cpu_dreg[dst0], tmp);
       tcg_temp_free(tmp);
     }
-#endif
   else if (aop == 0 && aopcde == 4)
     {
       TRACE_INSN (cpu, "R%i = R%i + R%i%s;", dst0, src0, src1, amod1 (s, x));
@@ -6147,13 +6148,22 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       acc0 = (acc0 << 1) | CCREG;
       SET_DREG (dst0, REG_H_L (DREG (dst0), CCREG));
     }
+#endif
   else if ((sop == 0 || sop == 1 || sop == 2) && sopcde == 13)
     {
       int shift = (sop + 1) * 8;
+      TCGv tmp2;
       TRACE_INSN (cpu, "R%i = ALIGN%i (R%i, R%i);", dst0, shift, src1, src0);
-      SET_DREG (dst0, (DREG (src1) << (32 - shift)) | (DREG (src0) >> shift));
+//      SET_DREG (dst0, (DREG (src1) << (32 - shift)) | (DREG (src0) >> shift));
+      /* XXX: could be optimized a bit if dst0 is not src1 or src0 */
+      tmp = tcg_temp_new();
+      tmp2 = tcg_temp_new();
+      tcg_gen_shli_tl(tmp, cpu_dreg[src1], 32 - shift);
+      tcg_gen_shri_tl(tmp2, cpu_dreg[src0], shift);
+      tcg_gen_or_tl(cpu_dreg[dst0], tmp, tmp2);
+      tcg_temp_free(tmp2);
+      tcg_temp_free(tmp);
     }
-#endif
   else
     illegal_instruction (dc);
 }
