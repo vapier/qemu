@@ -4,12 +4,12 @@
 #define TARGET_NCCS 19
 
 struct target_termios {
-    unsigned int c_iflag;               /* input mode flags */
-    unsigned int c_oflag;               /* output mode flags */
-    unsigned int c_cflag;               /* control mode flags */
-    unsigned int c_lflag;               /* local mode flags */
-    unsigned char c_line;                    /* line discipline */
-    unsigned char c_cc[TARGET_NCCS];                /* control characters */
+    uint32_t c_iflag;               /* input mode flags */
+    uint32_t c_oflag;               /* output mode flags */
+    uint32_t c_cflag;               /* control mode flags */
+    uint32_t c_lflag;               /* local mode flags */
+    uint8_t c_line;                    /* line discipline */
+    uint8_t c_cc[TARGET_NCCS];                /* control characters */
 };
 
 /* c_iflag bits */
@@ -194,8 +194,8 @@ struct target_termios {
 #define TARGET_TIOCSBRK	0x5427  /* BSD compatibility */
 #define TARGET_TIOCCBRK	0x5428  /* BSD compatibility */
 #define TARGET_TIOCGSID	0x5429  /* Return the session ID of FD */
-#define TARGET_TIOCGPTN	TARGET_IOR('T',0x30, unsigned int) /* Get Pty Number (of pty-mux device) */
-#define TARGET_TIOCSPTLCK	TARGET_IOW('T',0x31, int)  /* Lock/unlock Pty */
+#define TARGET_TIOCGPTN	TARGET_IOR('T',0x30, uint32_t) /* Get Pty Number (of pty-mux device) */
+#define TARGET_TIOCSPTLCK	TARGET_IOW('T',0x31, int32_t)  /* Lock/unlock Pty */
 
 #define TARGET_FIONCLEX	0x5450  /* these numbers need to be adjusted. */
 #define TARGET_FIOCLEX		0x5451
