@@ -1211,11 +1211,12 @@ decode_multfunc (DisasContext *dc, int h0, int h1, int src0, int src1, int mmod,
 //  val = s0 * s1;
   val = tcg_temp_local_new();
   tcg_gen_mul_tl(val, s0, s1);
-#if 0
+
   /* Perform shift correction if appropriate for the mode.  */
   *psat = 0;
   if (!MM && (mmod == 0 || mmod == M_T || mmod == M_S2RND || mmod == M_W32))
     {
+#if 0
       if (val == 0x40000000)
 	{
 	  if (mmod == M_W32)
@@ -1225,8 +1226,11 @@ decode_multfunc (DisasContext *dc, int h0, int h1, int src0, int src1, int mmod,
 	  *psat = 1;
 	}
       else
-	val <<= 1;
+#endif
+//	val <<= 1;
+	tcg_gen_shli_tl(val, val, 1);
     }
+#if 0
   val1 = val;
 
   if (mmod == 0 || mmod == M_IS || mmod == M_T || mmod == M_S2RND
