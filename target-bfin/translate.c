@@ -281,7 +281,7 @@ printf("%s: here\n", __func__);
 		tcg_gen_mov_tl(cpu_pc, dest);
 		tcg_gen_exit_tb((long)tb + tb_num);
 	} else */{
-//gen_astat_update(dc, false);
+gen_astat_update(dc, false);
 		tcg_gen_goto_tb(0);
 		tcg_gen_mov_tl(cpu_pc, dest);
 		tcg_gen_exit_tb(0);
@@ -769,11 +769,17 @@ _astat_queue_state(DisasContext *dc, enum astat_ops op, unsigned int num,
 	else
 		tcg_gen_discard_tl(cpu_astat_arg[2]);
 
-	gen_astat_update(dc, true);
+	//gen_astat_update(dc, true);
 }
 #define astat_queue_state1(dc, op, arg0)             _astat_queue_state(dc, op, 1, arg0, arg0, arg0)
 #define astat_queue_state2(dc, op, arg0, arg1)       _astat_queue_state(dc, op, 2, arg0, arg1, arg1)
 #define astat_queue_state3(dc, op, arg0, arg1, arg2) _astat_queue_state(dc, op, 3, arg0, arg1, arg2)
+
+static void gen_astat_load(DisasContext *dc, TCGv reg)
+{
+	gen_astat_update(dc, true);
+	gen_helper_astat_load(reg);
+}
 
 static void gen_astat_store(DisasContext *dc, TCGv reg)
 {

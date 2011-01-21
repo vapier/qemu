@@ -1807,7 +1807,7 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
 	{
 	  /* Push ASTAT */
 	  tmp = tcg_temp_new();
-	  gen_helper_astat_load(tmp);
+	  gen_astat_load(dc, tmp);
 	  tcg_gen_qemu_st32(tmp, cpu_spreg, dc->mem_idx);
 	  tcg_temp_free(tmp);
 	}
@@ -2228,7 +2228,7 @@ decode_CC2stat_0 (DisasContext *dc, bu16 iw0)
   if (cbit == 5)
     illegal_instruction (dc);
 
-  //gen_astat_update(dc, true);
+  gen_astat_update(dc, true);
 
 #if 0
   pval = !!(ASTAT & (1 << cbit));
@@ -2414,7 +2414,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
     {
       /* Reads of ASTAT */
       tmp = tcg_temp_new();
-      gen_helper_astat_load(tmp);
+      gen_astat_load(dc, tmp);
       reg_src = tmp;
       istmp = true;
     }
@@ -6644,7 +6644,7 @@ decode_psedodbg_assert_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 //  bu32 val = 0; //reg_read (cpu, grp, regtest);
   const char *reg_name = get_allreg_name (grp, regtest);
   const char *dbg_name, *dbg_appd;
-  TCGv reg, exp;
+  TCGv reg, exp, pc;
 
   TRACE_EXTRACT (cpu, "%s: dbgop:%i grp:%i regtest:%i expected:%#x",
 		 __func__, dbgop, grp, regtest, expected);
@@ -6668,10 +6668,12 @@ decode_psedodbg_assert_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   reg = get_allreg(dc, grp, regtest);
   exp = tcg_temp_new();
   tcg_gen_movi_tl(exp, expected);
+  pc = tcg_const_tl(dc->pc);
   if (dbgop & 1)
-    gen_helper_dbga_h(reg, exp);
+    gen_helper_dbga_h(pc, reg, exp);
   else
-    gen_helper_dbga_l(reg, exp);
+    gen_helper_dbga_l(pc, reg, exp);
+  tcg_temp_free(pc);
   tcg_temp_free(exp);
 /*
   if (actual != expected)

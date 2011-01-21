@@ -18,16 +18,16 @@ void helper_raise_exception(uint32_t index, uint32_t pc)
     cpu_loop_exit();
 }
 
-void helper_dbga_l(uint32_t actual, uint32_t expected)
+void helper_dbga_l(uint32_t pc, uint32_t actual, uint32_t expected)
 {
     if ((actual & 0xffff) != expected)
-        helper_raise_exception(EXCP_DBGA, -1);
+        helper_raise_exception(EXCP_DBGA, pc);
 }
 
-void helper_dbga_h(uint32_t actual, uint32_t expected)
+void helper_dbga_h(uint32_t pc, uint32_t actual, uint32_t expected)
 {
     if ((actual >> 16) != expected)
-        helper_raise_exception(EXCP_DBGA, -1);
+        helper_raise_exception(EXCP_DBGA, pc);
 }
 
 void helper_outc(uint32_t ch)
