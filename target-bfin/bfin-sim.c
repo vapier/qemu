@@ -5613,7 +5613,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 		  src1, HLs & 1 ? 'H' : 'L', src0);
 
       tmp = tcg_temp_local_new();
-      gen_extNs_tl(tmp, cpu_dreg[src0], 6);
+      gen_extNsi_tl(tmp, cpu_dreg[src0], 6);
 
       val = tcg_temp_local_new();
       if (HLs & 1)
@@ -5760,7 +5760,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 */
       /* Assume LSHIFT with positive magnitude for now */
       tmp = tcg_temp_local_new();
-      gen_extNs_tl(tmp, cpu_dreg[src0], 6);
+      gen_extNsi_tl(tmp, cpu_dreg[src0], 6);
 
       if (sop != 2)
 	{
@@ -6153,7 +6153,6 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       setflags_logical (cpu, DREG (dst0));
     }
 */
-#if 0
   else if ((sop == 2 || sop == 3) && sopcde == 10)
     {
       /* The first dregs is the "background" while the second dregs is the
@@ -6164,33 +6163,65 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
        *  L = number of fg bits to extract
        * Using (X) sign-extends the fg bit field.
        */
-      bu32 fg = DREG (src0);
-      bu32 bg = DREG (src1);
-      bu32 len = fg & 0x1f;
-      bu32 mask = (1 << MIN (16, len)) - 1;
-      bu32 fgnd = (fg >> 16) & mask;
-      int shft = ((fg >> 8) & 0x1f);
-
       TCGv fg, bg, len, mask, fgnd, shft;
 
       TRACE_INSN (cpu, "R%i = DEPOSIT (R%i, R%i)%s;", dst0, src1, src0,
 		  sop == 3 ? " (X)" : "");
 
+//      bu32 fg = DREG (src0);
+//      bu32 bg = DREG (src1);
+      fg = cpu_dreg[src0];
+      bg = cpu_dreg[src1];
+
+//      bu32 len = fg & 0x1f;
+      len = tcg_temp_new();
+      tcg_gen_andi_tl(len, fg, 0x1f);
+
+//      bu32 mask = (1 << MIN (16, len)) - 1;
+      mask = tcg_temp_new();
+      tcg_gen_movi_tl(mask, 1);
+      tcg_gen_shl_tl(mask, mask, len);
+      tcg_gen_subi_tl(mask, mask, 1);
+      tcg_gen_andi_tl(mask, mask, 0xffff);
+
+//      bu32 fgnd = (fg >> 16) & mask;
+      fgnd = tcg_temp_new();
+      tcg_gen_shri_tl(fgnd, fg, 16);
+      tcg_gen_and_tl(fgnd, fgnd, mask);
+
+//      int shft = ((fg >> 8) & 0x1f);
+      shft = tcg_temp_new();
+      tcg_gen_shri_tl(shft, fg, 8);
+      tcg_gen_andi_tl(shft, shft, 0x1f);
+
       if (sop == 3)
 	{
 	  /* Sign extend the fg bit field.  */
-	  mask = -1;
-	  fgnd = ((bs32)(bs16)(fgnd << (16 - len))) >> (16 - len);
+//	  mask = -1;
+//	  fgnd = ((bs32)(bs16)(fgnd << (16 - len))) >> (16 - len);
+	  tcg_gen_movi_tl(mask, -1);
+	  gen_extNs_tl(fgnd, fgnd, len);
 	}
-      fgnd <<= shft;
-      mask <<= shft;
-      bg &= ~mask;
+//      fgnd <<= shft;
+      tcg_gen_shl_tl(fgnd, fgnd, shft);
+//      mask <<= shft;
+      tcg_gen_shl_tl(mask, mask, shft);
+//      bg &= ~mask;
+      tcg_gen_not_tl(mask, mask);
+      tcg_gen_and_tl(mask, bg, mask);
 
 //      SET_DREG (dst0, bg | fgnd);
-      tcg_gen_or_tl(cpu_dreg[dst0], bg, fgnd);
+      tcg_gen_or_tl(cpu_dreg[dst0], mask, fgnd);
+
+      tcg_temp_free(shft);
+      tcg_temp_free(fgnd);
+      tcg_temp_free(mask);
+      tcg_temp_free(len);
+
 //      setflags_logical (cpu, DREG (dst0));
       astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst0]);
     }
+#if 0
   else if (sop == 0 && sopcde == 11)
     {
       bu64 acc0 = get_unextended_acc (cpu, 0);
