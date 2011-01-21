@@ -4583,17 +4583,18 @@ unhandled_instruction (dc, "A0 -= A1 (W32)");
 //      tcg_gen_mov_tl(cpu_awreg[s], cpu_awreg[!s]);
       tcg_gen_mov_i64(cpu_areg[s], cpu_areg[!s]);
     }
-#if 0
   else if (aop == 3 && HL == 0 && aopcde == 16)
     {
       int i;
-      bu32 az;
+//      bu32 az;
 
       TRACE_INSN (cpu, "A1 = ABS A1 , A0 = ABS A0;");
 
-      az = 0;
+      /* XXX: Missing ASTAT updates */
+//      az = 0;
       for (i = 0; i < 2; ++i)
 	{
+/*
 	  bu32 av;
 	  bs40 acc = get_extended_acc (cpu, i);
 
@@ -4608,10 +4609,14 @@ unhandled_instruction (dc, "A0 -= A1 (W32)");
 	  if (av)
 	    SET_ASTATREG (avs[i], av);
 	  az |= (acc == 0);
+*/
+	  /* XXX: Missing saturation */
+	  gen_abs_i64(cpu_areg[i], cpu_areg[i]);
 	}
-      SET_ASTATREG (az, az);
-      SET_ASTATREG (an, 0);
+//      SET_ASTATREG (az, az);
+//      SET_ASTATREG (an, 0);
     }
+#if 0
   else if (aop == 0 && aopcde == 23)
     {
       bu32 s0, s0L, s0H, s1, s1L, s1H;
@@ -4644,13 +4649,19 @@ unhandled_instruction (dc, "A0 -= A1 (W32)");
       SET_DREG (dst0, (CLAMP (tmp0, 0, 255) << ( 0 + (8 * HL))) |
 		      (CLAMP (tmp1, 0, 255) << (16 + (8 * HL))));
     }
+#endif
   else if ((aop == 0 || aop == 1) && aopcde == 16)
     {
-      bu32 av;
-      bs40 acc;
+//      bu32 av;
+//      bs40 acc;
 
       TRACE_INSN (cpu, "A%i = ABS A%i;", HL, aop);
 
+      /* XXX: Missing saturation */
+      gen_abs_i64(cpu_areg[aop], cpu_areg[aop]);
+
+      /* XXX: Missing ASTAT updates */
+/*
       acc = get_extended_acc (cpu, aop);
       if (acc >> 39)
 	acc = -acc;
@@ -4664,7 +4675,9 @@ unhandled_instruction (dc, "A0 -= A1 (W32)");
 	SET_ASTATREG (avs[HL], av);
       SET_ASTATREG (az, acc == 0);
       SET_ASTATREG (an, 0);
+*/
     }
+#if 0
   else if (aop == 3 && aopcde == 12)
     {
       bs32 res = DREG (src0);

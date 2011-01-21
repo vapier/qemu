@@ -505,6 +505,15 @@ static void gen_abs_tl(TCGv ret, TCGv arg)
 	gen_set_label(l);
 }
 
+static void gen_abs_i64(TCGv_i64 ret, TCGv_i64 arg)
+{
+	int l = gen_new_label();
+	tcg_gen_mov_i64(ret, arg);
+	tcg_gen_brcondi_i64(TCG_COND_GE, arg, 0, l);
+	tcg_gen_neg_i64(ret, ret);
+	gen_set_label(l);
+}
+
 /* Common tail code for DIVQ/DIVS insns */
 static void _gen_helper_divqs(TCGv pquo, TCGv r, TCGv aq, TCGv div)
 {
