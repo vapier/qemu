@@ -232,8 +232,8 @@ void cpu_dump_state(CPUState *env, FILE *f,
 	            env->breg[3], env->lreg[3], env->mreg[3], env->ireg[3]);
 //	cpu_fprintf(f, "A0.w: %08x  A0.x: %08x  A1.w: %08x  A1.x: %08x\n",
 //	            env->areg[0].w, env->areg[0].x, env->areg[1].w, env->areg[1].x);
-	cpu_fprintf(f, "  A0: %010x                 A1: %010x\n",
-	            env->areg[0], env->areg[1]);
+	cpu_fprintf(f, "  A0: %010lx                 A1: %010lx\n",
+	            env->areg[0] & 0xffffffffff, env->areg[1] & 0xffffffffff);
 	cpu_fprintf(f, " USP: %08x ASTAT: %08x   CC : %08x\n",
 	            env->uspreg, bfin_astat_read(env), env->astat[ASTAT_CC]);
 	cpu_fprintf(f, "ASTAT BITS: ");

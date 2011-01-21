@@ -4413,7 +4413,7 @@ decode_dsp32alu_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       int a = aop >> 1;
       TRACE_INSN (cpu, "A%i = R%i;", a, src0);
 //      SET_AREG32 (a, DREG (src0));
-      tcg_gen_ext_i32_i64(cpu_areg[0], cpu_dreg[src0]);
+      tcg_gen_ext_i32_i64(cpu_areg[a], cpu_dreg[src0]);
     }
   else if ((aop == 1 || aop == 3) && aopcde == 9 && s == 0)
     {
