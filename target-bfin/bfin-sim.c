@@ -39,9 +39,7 @@ typedef int32_t bs32;
 typedef int64_t bs40;
 typedef int64_t bs64;
 
-#define _TRACE_STUB(cpu, fmt, args...) do { if (0) printf (fmt, ## args); } while (0)
 #define TRACE_INSN(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_IN_ASM, fmt "\n", ## args); } while (0)
-#define TRACE_DECODE(...) _TRACE_STUB(__VA_ARGS__)
 #define TRACE_EXTRACT(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_CPU, fmt "\n", ## args); } while (0)
 
 #define M_S2RND 1
@@ -1563,55 +1561,35 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
       dc->hwloop_data = &cpu_rets;
     }
   else if (prgfunc == 1 && poprnd == 1)
-    {
-      /* RTI; */
-      cec_require_supervisor (dc);
-    }
+    /* RTI; */
+    cec_require_supervisor (dc);
   else if (prgfunc == 1 && poprnd == 2)
-    {
-      /* RTX; */
-      cec_require_supervisor (dc);
-    }
+    /* RTX; */
+    cec_require_supervisor (dc);
   else if (prgfunc == 1 && poprnd == 3)
-    {
-      /* RTN; */
-      cec_require_supervisor (dc);
-    }
+    /* RTN; */
+    cec_require_supervisor (dc);
   else if (prgfunc == 1 && poprnd == 4)
-    {
-      /* RTE; */
-      cec_require_supervisor (dc);
-    }
+    /* RTE; */
+    cec_require_supervisor (dc);
   else if (prgfunc == 2 && poprnd == 0)
-    {
-      /* IDLE; */
-      /* just NOP it */
-    }
+    /* IDLE; */
+    /* just NOP it */;
   else if (prgfunc == 2 && poprnd == 3)
-    {
-      /* CSYNC; */
-      /* just NOP it */
-    }
+    /* CSYNC; */
+    /* just NOP it */;
   else if (prgfunc == 2 && poprnd == 4)
-    {
-      /* SSYNC; */
-      /* just NOP it */
-    }
+    /* SSYNC; */
+    /* just NOP it */;
   else if (prgfunc == 2 && poprnd == 5)
-    {
-      /* EMUEXCPT; */
-//      cec_exception (dc, EXCP_DEBUG);
-    }
+    /* EMUEXCPT; */
+    cec_exception (dc, EXCP_DEBUG);
   else if (prgfunc == 3 && poprnd < 8)
-    {
-      /* CLI Dreg{poprnd}; */
-      cec_require_supervisor (dc);
-    }
+    /* CLI Dreg{poprnd}; */
+    cec_require_supervisor (dc);
   else if (prgfunc == 4 && poprnd < 8)
-    {
-      /* STI Dreg{poprnd}; */
-      cec_require_supervisor (dc);
-    }
+    /* STI Dreg{poprnd}; */
+    cec_require_supervisor (dc);
   else if (prgfunc == 5 && poprnd < 8)
     {
       /* JUMP (Preg{poprnd}); */
@@ -1655,20 +1633,12 @@ decode_ProgCtrl_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   else if (prgfunc == 11 && poprnd < 6)
     {
       /* TESTSET (Preg{poprnd}); */
-      TCGv tmp;
-//      bu32 addr = PREG (poprnd);
-//      bu8 byte;
-//      byte = GET_WORD (addr);
-//      SET_CCREG (byte == 0);
-//      PUT_BYTE (addr, byte | 0x80);
-      tmp = tcg_temp_new();
+      TCGv tmp = tcg_temp_new();
       tcg_gen_qemu_ld8u(tmp, cpu_preg[poprnd], dc->mem_idx);
       tcg_gen_setcondi_tl(TCG_COND_EQ, cpu_cc, tmp, 0);
       tcg_gen_ori_tl(tmp, tmp, 0x80);
       tcg_gen_qemu_st8(tmp, cpu_preg[poprnd], dc->mem_idx);
       tcg_temp_free(tmp);
-//      /* Also includes memory stalls, but we don't model that.  */
-//      CYCLE_DELAY = 2;
     }
   else
     illegal_instruction (dc);
@@ -1721,7 +1691,6 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
   TCGv_i64 tmp64;
 
   TRACE_EXTRACT (cpu, "%s: W:%i grp:%i reg:%i", __func__, W, grp, reg);
-  TRACE_DECODE (cpu, "%s: reg:%s", __func__, reg_name);
 
   /* Can't push/pop reserved registers  */
   if (reg_is_reserved (grp, reg))
@@ -1861,76 +1830,47 @@ decode_PushPopMultiple_0 (DisasContext *dc, bu16 iw0)
   int dr = ((iw0 >> PushPopMultiple_dr_bits) & PushPopMultiple_dr_mask);
   int pr = ((iw0 >> PushPopMultiple_pr_bits) & PushPopMultiple_pr_mask);
   int i;
-//  bu32 sp = SPREG;
 
   TRACE_EXTRACT (cpu, "%s: d:%i p:%i W:%i dr:%i pr:%i",
 		 __func__, d, p, W, dr, pr);
 
-  if ((d == 0 && p == 0) || (p && imm5 (pr) > 5) ||
+  /*if ((d == 0 && p == 0) || (p && imm5 (pr) > 5) ||
       (d && !p && pr) || (p && !d && dr))
-    illegal_instruction (dc);
+    illegal_instruction (dc);*/
 
   if (W == 1)
     {
-      if (d && p)
-	TRACE_INSN (cpu, "[--SP] = (R7:%i, P5:%i);", dr, pr);
-      else if (d)
-	TRACE_INSN (cpu, "[--SP] = (R7:%i);", dr);
-      else
-	TRACE_INSN (cpu, "[--SP] = (P5:%i);", pr);
-
+      /* [--SP] = ({d}R7:imm{dr}, {p}P5:imm{pr}); */
       if (d)
 	for (i = dr; i < 8; i++)
 	  {
 	    tcg_gen_subi_tl(cpu_spreg, cpu_spreg, 4);
 	    tcg_gen_qemu_st32(cpu_dreg[i], cpu_spreg, dc->mem_idx);
-//	    sp -= 4;
-//	    PUT_LONG (sp, DREG (i));
 	  }
       if (p)
 	for (i = pr; i < 6; i++)
 	  {
 	    tcg_gen_subi_tl(cpu_spreg, cpu_spreg, 4);
 	    tcg_gen_qemu_st32(cpu_preg[i], cpu_spreg, dc->mem_idx);
-//	    sp -= 4;
-//	    PUT_LONG (sp, PREG (i));
 	  }
-
-//      CYCLE_DELAY = 14;
     }
   else
     {
-      if (d && p)
-	TRACE_INSN (cpu, "(R7:%i, P5:%i) = [SP++];", dr, pr);
-      else if (d)
-	TRACE_INSN (cpu, "(R7:%i) = [SP++];", dr);
-      else
-	TRACE_INSN (cpu, "(P5:%i) = [SP++];", pr);
+      /* ({d}R7:imm{dr}, {p}P5:imm{pr}) = [SP++]; */
 
       if (p)
 	for (i = 5; i >= pr; i--)
 	  {
-//	    SET_PREG (i, GET_LONG (sp));
-//	    sp += 4;
 	    tcg_gen_qemu_ld32u(cpu_preg[i], cpu_spreg, dc->mem_idx);
 	    tcg_gen_addi_tl(cpu_spreg, cpu_spreg, 4);
 	  }
       if (d)
 	for (i = 7; i >= dr; i--)
 	  {
-//	    SET_DREG (i, GET_LONG (sp));
-//	    sp += 4;
 	    tcg_gen_qemu_ld32u(cpu_dreg[i], cpu_spreg, dc->mem_idx);
 	    tcg_gen_addi_tl(cpu_spreg, cpu_spreg, 4);
 	  }
-
-//      CYCLE_DELAY = 11;
     }
-
-  /* Note: SP update must be delayed until after all reads/writes so that
-           if an exception does occur, the insn may be re-executed as the
-           SP has not yet changed.  */
-//  SET_SPREG (sp);
 }
 
 static void
@@ -1945,25 +1885,19 @@ decode_ccMV_0 (DisasContext *dc, bu16 iw0)
   int T  = ((iw0 >> CCmv_T_bits) & CCmv_T_mask);
   int src = ((iw0 >> CCmv_src_bits) & CCmv_src_mask);
   int dst = ((iw0 >> CCmv_dst_bits) & CCmv_dst_mask);
-//  int cond = T ? CCREG : ! CCREG;
   int l;
   TCGv reg_src, reg_dst;
 
   TRACE_EXTRACT (cpu, "%s: T:%i d:%i s:%i dst:%i src:%i",
 		 __func__, T, d, s, dst, src);
 
-  TRACE_INSN (cpu, "IF %sCC %s = %s;", T ? "" : "! ",
-	      get_allreg_name (d, dst),
-	      get_allreg_name (s, src));
-
+  /* IF !{T} CC DPreg{d,dst} = DPreg{s,src}; */
   reg_src = get_allreg(dc, s, src);
   reg_dst = get_allreg(dc, d, dst);
   l = gen_new_label();
   tcg_gen_brcondi_tl(TCG_COND_NE, cpu_cc, T, l);
   tcg_gen_mov_tl(reg_dst, reg_src);
   gen_set_label(l);
-//  if (cond)
-//    reg_write (cpu, d, dst, reg_read (cpu, s, src));
 }
 
 static void
@@ -1989,8 +1923,8 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
 //      bs64 diff = acc0 - acc1;
       TCGv_i64 tmp64;
 
-      if (x != 0 || y != 0)
-	illegal_instruction (dc);
+      /*if (x != 0 || y != 0)
+	illegal_instruction (dc);*/
 
       tmp64 = tcg_temp_new_i64();
       if (opc == 5 && I == 0 && G == 0)
@@ -2011,8 +1945,8 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
 //	  SET_CCREG (acc0 <= acc1);
 	  tcg_gen_setcond_i64(TCG_COND_LE, tmp64, cpu_areg[0], cpu_areg[1]);
 	}
-      else
-	illegal_instruction (dc);
+      /*else
+	illegal_instruction (dc);*/
       tcg_gen_trunc_i64_i32(cpu_cc, tmp64);
       tcg_temp_free_i64(tmp64);
 
@@ -2133,7 +2067,6 @@ decode_CCflag_0 (DisasContext *dc, bu16 iw0)
 		    issigned ? imm3_str (y) : uimm3_str (y), sign);
       else
 	{
-	  TRACE_DECODE (cpu, "%s %c%i:%x %c%i:%x", __func__, s, x, srcop,  d, y, dstop);
 	  TRACE_INSN (cpu, "CC = %c%i %s %c%i%s;", s, x, op, d, y, sign);
 	}
 
@@ -2162,26 +2095,19 @@ decode_CC2dreg_0 (DisasContext *dc, bu16 iw0)
   TRACE_EXTRACT (cpu, "%s: op:%i reg:%i", __func__, op, reg);
 
   if (op == 0)
-    {
-      TRACE_INSN (cpu, "R%i = CC;", reg);
-//      SET_DREG (reg, CCREG);
-      tcg_gen_mov_tl(cpu_dreg[reg], cpu_cc);
-    }
+    /* Dreg{reg} = CC; */
+    tcg_gen_mov_tl(cpu_dreg[reg], cpu_cc);
   else if (op == 1)
-    {
-      TRACE_INSN (cpu, "CC = R%i;", reg);
-//      SET_CCREG (DREG (reg) != 0);
-      tcg_gen_setcondi_tl(TCG_COND_NE, cpu_cc, cpu_dreg[reg], 0);
-    }
+    /* CC = Dreg{reg}; */
+    tcg_gen_setcondi_tl(TCG_COND_NE, cpu_cc, cpu_dreg[reg], 0);
   else if (op == 3 && reg == 0)
     {
-      TRACE_INSN (cpu, "CC = !CC;");
-//      SET_CCREG (!CCREG);
+      /* CC = !CC; */
       tcg_gen_not_tl(cpu_cc, cpu_cc);
       tcg_gen_andi_tl(cpu_cc, cpu_cc, 1); /* only want the lowest bit */
     }
-  else
-    illegal_instruction (dc);
+  /*else
+    illegal_instruction (dc);*/
 }
 
 static void
@@ -2194,92 +2120,35 @@ decode_CC2stat_0 (DisasContext *dc, bu16 iw0)
   int D    = ((iw0 >> CC2stat_D_bits) & CC2stat_D_mask);
   int op   = ((iw0 >> CC2stat_op_bits) & CC2stat_op_mask);
   int cbit = ((iw0 >> CC2stat_cbit_bits) & CC2stat_cbit_mask);
-//  bu32 pval;
   TCGv tmp;
-
-  const char * const op_names[] = { "", "|", "&", "^" } ;
-  const char *astat_name;
-  const char * const astat_names[32] = {
-    [ 0] = "AZ",
-    [ 1] = "AN",
-    [ 2] = "AC0_COPY",
-    [ 3] = "V_COPY",
-    [ 5] = "CC",
-    [ 6] = "AQ",
-    [ 8] = "RND_MOD",
-    [12] = "AC0",
-    [13] = "AC1",
-    [16] = "AV0",
-    [17] = "AV0S",
-    [18] = "AV1",
-    [19] = "AV1S",
-    [24] = "V",
-    [25] = "VS",
-  };
-  astat_name = astat_names[cbit];
-  if (!astat_name)
-    {
-      static char astat_bit[12];
-      sprintf (astat_bit, "ASTAT[%i]", cbit);
-      astat_name = astat_bit;
-    }
 
   TRACE_EXTRACT (cpu, "%s: D:%i op:%i cbit:%i", __func__, D, op, cbit);
 
-  TRACE_INSN (cpu, "%s %s= %s;", D ? astat_name : "CC",
-	      op_names[op], D ? "CC" : astat_name);
-
   /* CC = CC; is invalid.  */
-  if (cbit == 5)
-    illegal_instruction (dc);
+  /*if (cbit == 5)
+    illegal_instruction (dc);*/
 
   gen_astat_update(dc, true);
 
-#if 0
-  pval = !!(ASTAT & (1 << cbit));
   if (D == 0)
     switch (op)
       {
-      case 0: SET_CCREG (pval); break;
-      case 1: SET_CCREG (CCREG | pval); break;
-      case 2: SET_CCREG (CCREG & pval); break;
-      case 3: SET_CCREG (CCREG ^ pval); break;
-      }
-  else
-    {
-      switch (op)
-	{
-	case 0: pval  = CCREG; break;
-	case 1: pval |= CCREG; break;
-	case 2: pval &= CCREG; break;
-	case 3: pval ^= CCREG; break;
-	}
-      if (astat_names[cbit])
-	TRACE_REGISTER (cpu, "wrote ASTAT[%s] = %i", astat_name, pval);
-      else
-	TRACE_REGISTER (cpu, "wrote %s = %i", astat_name, pval);
-      SET_ASTAT ((ASTAT & ~(1 << cbit)) | (pval << cbit));
-    }
-#endif
-  if (D == 0)
-    switch (op)
-      {
-      case 0: /* CC = ASTAT[bit] */
+      case 0: /* CC = ASTAT[cbit] */
 	tcg_gen_ld_tl(cpu_cc, cpu_env, offsetof(CPUState, astat[cbit]));
 	break;
-      case 1: /* CC |= ASTAT[bit] */
+      case 1: /* CC |= ASTAT[cbit] */
 	tmp = tcg_temp_new();
 	tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_gen_or_tl(cpu_cc, cpu_cc, tmp);
 	tcg_temp_free(tmp);
 	break;
-      case 2: /* CC &= ASTAT[bit] */
+      case 2: /* CC &= ASTAT[cbit] */
 	tmp = tcg_temp_new();
 	tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_gen_and_tl(cpu_cc, cpu_cc, tmp);
 	tcg_temp_free(tmp);
 	break;
-      case 3: /* CC ^= ASTAT[bit] */
+      case 3: /* CC ^= ASTAT[cbit] */
 	tmp = tcg_temp_new();
 	tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_gen_xor_tl(cpu_cc, cpu_cc, tmp);
@@ -2289,24 +2158,24 @@ decode_CC2stat_0 (DisasContext *dc, bu16 iw0)
   else
     switch (op)
       {
-      case 0: /* ASTAT[bit] = CC */
+      case 0: /* ASTAT[cbit] = CC */
 	tcg_gen_st_tl(cpu_cc, cpu_env, offsetof(CPUState, astat[cbit]));
 	break;
-      case 1: /* ASTAT[bit] |= CC */
+      case 1: /* ASTAT[cbit] |= CC */
 	tmp = tcg_temp_new();
 	tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_gen_or_tl(tmp, tmp, cpu_cc);
 	tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_temp_free(tmp);
 	break;
-      case 2: /* ASTAT[bit] &= CC */
+      case 2: /* ASTAT[cbit] &= CC */
 	tmp = tcg_temp_new();
 	tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_gen_and_tl(tmp, tmp, cpu_cc);
 	tcg_gen_st_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_temp_free(tmp);
 	break;
-      case 3: /* ASTAT[bit] ^= CC */
+      case 3: /* ASTAT[cbit] ^= CC */
 	tmp = tcg_temp_new();
 	tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUState, astat[cbit]));
 	tcg_gen_xor_tl(tmp, tmp, cpu_cc);
@@ -2329,10 +2198,8 @@ decode_BRCC_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   int pcrel = pcrel10 (offset);
 
   TRACE_EXTRACT (cpu, "%s: T:%i B:%i offset:%#x", __func__, T, B, offset);
-  TRACE_DECODE (cpu, "%s: pcrel10:%#x", __func__, pcrel);
 
-  TRACE_INSN (cpu, "IF %sCC JUMP %#x%s;", T ? "" : "! ",
-	      pcrel, B ? " (bp)" : "");
+  /* IF !{T} CC JUMP imm{offset} (bp){B}; */
 
   dc->hwloop_callback = gen_hwloop_br_pcrel_cc;
   dc->hwloop_data = (void *)(unsigned long)(pcrel | T);
@@ -2349,9 +2216,8 @@ decode_UJUMP_0 (DisasContext *dc, bu16 iw0, target_ulong pc)
   int pcrel = pcrel12 (offset);
 
   TRACE_EXTRACT (cpu, "%s: offset:%#x", __func__, offset);
-  TRACE_DECODE (cpu, "%s: pcrel12:%#x", __func__, pcrel);
 
-  TRACE_INSN (cpu, "JUMP.S %#x;", pcrel);
+  /* JUMP.S imm{offset}; */
 
   dc->is_jmp = DISAS_JUMP;
   dc->hwloop_callback = gen_hwloop_br_pcrel_imm;
@@ -2369,24 +2235,22 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
   int gd  = ((iw0 >> RegMv_gd_bits) & RegMv_gd_mask);
   int src = ((iw0 >> RegMv_src_bits) & RegMv_src_mask);
   int dst = ((iw0 >> RegMv_dst_bits) & RegMv_dst_mask);
-  const char *srcreg_name = get_allreg_name (gs, src);
-  const char *dstreg_name = get_allreg_name (gd, dst);
   TCGv reg_src, reg_dst, tmp;
   TCGv_i64 tmp64;
   bool istmp;
 
   TRACE_EXTRACT (cpu, "%s: gd:%i gs:%i dst:%i src:%i",
 		 __func__, gd, gs, dst, src);
-  TRACE_DECODE (cpu, "%s: dst:%s src:%s", __func__, dstreg_name, srcreg_name);
 
-  TRACE_INSN (cpu, "%s = %s;", dstreg_name, srcreg_name);
-
-  /* Reserved slots cannot be a src/dst.  */
-  if (reg_is_reserved (gs, src) || reg_is_reserved (gd, dst))
-    goto invalid_move;
+  /* genreg{gd,dst} = genreg{gs,src}; */
 
   reg_check_sup (dc, gs, src);
   reg_check_sup (dc, gd, dst);
+
+#if 0
+  /* Reserved slots cannot be a src/dst.  */
+  if (reg_is_reserved (gs, src) || reg_is_reserved (gd, dst))
+    goto invalid_move;
 
   /* Standard register moves  */
   if ((gs < 2) ||				/* Dregs/Pregs as source  */
@@ -2415,6 +2279,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
   illegal_instruction (dc);
 
  valid_move:
+#endif
   if (gs == 4 && src == 6)
     {
       /* Reads of ASTAT */
@@ -2489,7 +2354,6 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
 
   if (istmp)
     tcg_temp_free(tmp);
-//  reg_write (cpu, gd, dst, reg_read (cpu, gs, src));
 }
 
 static void
@@ -2577,9 +2441,8 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
     }
   else if (opc == 3)
     {
-      TRACE_INSN (cpu, "R%i *= R%i;", dst, src);
+      /* Dreg{dst} *= Dreg{src}; */
 //      SET_DREG (dst, DREG (dst) * DREG (src));
-//      CYCLE_DELAY = 3;
       tcg_gen_mul_tl(cpu_dreg[dst], cpu_dreg[dst], cpu_dreg[src]);
     }
   else if (opc == 4)
@@ -2643,8 +2506,8 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
       tcg_gen_not_tl(cpu_dreg[dst], cpu_dreg[src]);
       astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
     }
-  else
-    illegal_instruction (dc);
+  /*else
+    illegal_instruction (dc);*/
 }
 
 static void
@@ -2704,8 +2567,8 @@ decode_PTR2op_0 (DisasContext *dc, bu16 iw0)
       tcg_gen_add_tl(cpu_preg[dst], cpu_preg[dst], cpu_preg[src]);
       tcg_gen_shli_tl(cpu_preg[dst], cpu_preg[dst], 2);
     }
-  else
-    illegal_instruction (dc);
+  /*else
+    illegal_instruction (dc);*/
 }
 
 static void
@@ -2723,7 +2586,6 @@ decode_LOGI2op_0 (DisasContext *dc, bu16 iw0)
   TCGv tmp;
 
   TRACE_EXTRACT (cpu, "%s: opc:%i src:%i dst:%i", __func__, opc, src, dst);
-  TRACE_DECODE (cpu, "%s: uimm5:%#x", __func__, uimm);
 
   if (opc == 0)
     {
@@ -2787,8 +2649,8 @@ decode_LOGI2op_0 (DisasContext *dc, bu16 iw0)
       tcg_gen_shli_tl(cpu_dreg[dst], cpu_dreg[dst], uimm);
       astat_queue_state1(dc, ASTAT_OP_LSHIFT, cpu_dreg[dst]);
     }
-  else
-    illegal_instruction (dc);
+  /*else
+    illegal_instruction (dc);*/
 }
 
 static void
@@ -2878,7 +2740,6 @@ decode_COMPI2opD_0 (DisasContext *dc, bu16 iw0)
   TCGv tmp;
 
   TRACE_EXTRACT (cpu, "%s: op:%i src:%i dst:%i", __func__, op, src, dst);
-  TRACE_DECODE (cpu, "%s: imm7:%#x", __func__, imm);
 
   if (op == 0)
     {
@@ -2912,7 +2773,6 @@ decode_COMPI2opP_0 (DisasContext *dc, bu16 iw0)
   int imm = imm7 (src);
 
   TRACE_EXTRACT (cpu, "%s: op:%i src:%i dst:%i", __func__, op, src, dst);
-  TRACE_DECODE (cpu, "%s: imm:%#x", __func__, imm);
 
   if (op == 0)
     {
@@ -3092,8 +2952,8 @@ decode_LDSTpmod_0 (DisasContext *dc, bu16 iw0)
 	tcg_gen_add_tl(cpu_preg[ptr], cpu_preg[ptr], cpu_preg[idx]);
       tcg_temp_free(tmp);
     }
-  else
-    illegal_instruction (dc);
+  /*else
+    illegal_instruction (dc);*/
 }
 
 static void
@@ -3129,8 +2989,8 @@ decode_dagMODim_0 (DisasContext *dc, bu16 iw0)
 //      dagsub (cpu, i, MREG (m));
       tcg_gen_sub_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
     }
-  else
-    illegal_instruction (dc);
+  /*else
+    illegal_instruction (dc);*/
 }
 
 static void
@@ -3431,8 +3291,8 @@ decode_dspLDST_0 (DisasContext *dc, bu16 iw0)
       tcg_gen_qemu_st32(cpu_dreg[reg], cpu_ireg[i], dc->mem_idx);
       tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
     }
-  else
-    illegal_instruction (dc);
+  /*else
+    illegal_instruction (dc);*/
 }
 
 static void
@@ -3448,76 +3308,56 @@ decode_LDST_0 (DisasContext *dc, bu16 iw0)
   int aop = ((iw0 >> LDST_aop_bits) & LDST_aop_mask);
   int reg = ((iw0 >> LDST_reg_bits) & LDST_reg_mask);
   int ptr = ((iw0 >> LDST_ptr_bits) & LDST_ptr_mask);
-  const char * const posts[] = { "++", "--", "" };
-  const char *post = posts[aop];
 
   TRACE_EXTRACT (cpu, "%s: sz:%i W:%i aop:%i Z:%i ptr:%i reg:%i",
 		 __func__, sz, W, aop, Z, ptr, reg);
 
-  if (aop == 3)
-    illegal_instruction (dc);
+  /*if (aop == 3)
+    illegal_instruction (dc);*/
 
   if (W == 0)
     {
       if (sz == 0 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "R%i = [P%i%s];", reg, ptr, post);
-	  tcg_gen_qemu_ld32u(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
+	/* Dreg{reg} = [Preg{ptr}{aop}]; */
+	tcg_gen_qemu_ld32u(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
       else if (sz == 0 && Z == 1)
 	{
-	  TRACE_INSN (cpu, "P%i = [P%i%s];", reg, ptr, post);
-	  if (aop < 2 && ptr == reg)
-	    illegal_instruction_combination (dc);
+	  /* Preg{reg} = [Preg{ptr}{aop}]; */
+	  /*if (aop < 2 && ptr == reg)
+	    illegal_instruction_combination (dc);*/
 	  tcg_gen_qemu_ld32u(cpu_preg[reg], cpu_preg[ptr], dc->mem_idx);
 	}
       else if (sz == 1 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "R%i = W[P%i%s] (Z);", reg, ptr, post);
-	  tcg_gen_qemu_ld16u(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
+	/* Dreg{reg} = W[Preg{ptr}{aop}] (Z); */
+	tcg_gen_qemu_ld16u(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
       else if (sz == 1 && Z == 1)
-	{
-	  TRACE_INSN (cpu, "R%i = W[P%i%s] (X);", reg, ptr, post);
-	  tcg_gen_qemu_ld16s(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
+	/* Dreg{reg} = W[Preg{ptr}{aop}] (X); */
+	tcg_gen_qemu_ld16s(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
       else if (sz == 2 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "R%i = B[P%i%s] (Z);", reg, ptr, post);
-	  tcg_gen_qemu_ld8u(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
+	/* Dreg{reg} = B[Preg{ptr}{aop}] (Z); */
+	tcg_gen_qemu_ld8u(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
       else if (sz == 2 && Z == 1)
-	{
-	  TRACE_INSN (cpu, "R%i = B[P%i%s] (X);", reg, ptr, post);
-	  tcg_gen_qemu_ld8s(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
-      else
-	illegal_instruction (dc);
+	/* Dreg{reg} = B[Preg{ptr}{aop}] (X); */
+	tcg_gen_qemu_ld8s(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
+      /*else
+	illegal_instruction (dc);*/
     }
   else
     {
       if (sz == 0 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "[P%i%s] = R%i;", ptr, post, reg);
-	  tcg_gen_qemu_st32(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
+	/* [Preg{ptr}{aop}] = Dreg{reg}; */
+	tcg_gen_qemu_st32(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
       else if (sz == 0 && Z == 1)
-	{
-	  TRACE_INSN (cpu, "[P%i%s] = P%i;", ptr, post, reg);
-	  tcg_gen_qemu_st32(cpu_preg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
+	/* [Preg{ptr}{aop}] = Preg{reg}; */
+	tcg_gen_qemu_st32(cpu_preg[reg], cpu_preg[ptr], dc->mem_idx);
       else if (sz == 1 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "W[P%i%s] = R%i;", ptr, post, reg);
-	  tcg_gen_qemu_st16(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
+	/* W[Preg{ptr}{aop}] = Dreg{reg}; */
+	tcg_gen_qemu_st16(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
       else if (sz == 2 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "B[P%i%s] = R%i;", ptr, post, reg);
-	  tcg_gen_qemu_st8(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
-	}
-      else
-	illegal_instruction (dc);
+	/* B[Preg{ptr}{aop}] = Dreg{reg}; */
+	tcg_gen_qemu_st8(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx);
+      /*else
+	illegal_instruction (dc);*/
     }
 
   if (aop == 0)
@@ -3540,30 +3380,20 @@ decode_LDSTiiFP_0 (DisasContext *dc, bu16 iw0)
   int offset = ((iw0 >> LDSTiiFP_offset_bits) & LDSTiiFP_offset_mask);
   int W = ((iw0 >> LDSTiiFP_W_bits) & LDSTiiFP_W_mask);
   bu32 imm = negimm5s4 (offset);
-//  bu32 ea = FPREG + imm;
-  const char *imm_str = negimm5s4_str (offset);
-  const char *reg_name = get_allreg_name (grp, reg);
   TCGv treg = get_allreg (dc, grp, reg);
   TCGv ea;
 
   TRACE_EXTRACT (cpu, "%s: W:%i offset:%#x grp:%i reg:%i", __func__,
 		 W, offset, grp, reg);
-  TRACE_DECODE (cpu, "%s: negimm5s4:%#x", __func__, imm);
 
   ea = tcg_temp_new();
   tcg_gen_addi_tl(ea, cpu_fpreg, imm);
   if (W == 0)
-    {
-      TRACE_INSN (cpu, "%s = [FP + %s];", reg_name, imm_str);
-//      reg_write (cpu, grp, reg, GET_LONG (ea));
-      tcg_gen_qemu_ld32u(treg, ea, dc->mem_idx);
-    }
+    /* DPreg{reg} = [FP + imm{offset}]; */
+    tcg_gen_qemu_ld32u(treg, ea, dc->mem_idx);
   else
-    {
-      TRACE_INSN (cpu, "[FP + %s] = %s;", imm_str, reg_name);
-      tcg_gen_qemu_st32(treg, ea, dc->mem_idx);
-//      PUT_LONG (ea, reg_read (cpu, grp, reg));
-    }
+    /* [FP + imm{offset}] = DPreg{reg}; */
+    tcg_gen_qemu_st32(treg, ea, dc->mem_idx);
   tcg_temp_free(ea);
 }
 
@@ -3579,66 +3409,48 @@ decode_LDSTii_0 (DisasContext *dc, bu16 iw0)
   int offset = ((iw0 >> LDSTii_offset_bit) & LDSTii_offset_mask);
   int op = ((iw0 >> LDSTii_op_bit) & LDSTii_op_mask);
   int W = ((iw0 >> LDSTii_W_bit) & LDSTii_W_mask);
-  bu32 imm; //, ea;
-  const char *imm_str;
+  bu32 imm;
   TCGv ea;
 
   TRACE_EXTRACT (cpu, "%s: W:%i op:%i offset:%#x ptr:%i reg:%i",
 		 __func__, W, op, offset, ptr, reg);
 
+  /*if (W == 1 && op == 2)
+    illegal_instruction (dc);*/
+
   if (op == 0 || op == 3)
-    imm = uimm4s4 (offset), imm_str = uimm4s4_str (offset);
+    imm = uimm4s4 (offset);
   else
-    imm = uimm4s2 (offset), imm_str = uimm4s2_str (offset);
-//  ea = PREG (ptr) + imm;
-
-  TRACE_DECODE (cpu, "%s: uimm4s4/uimm4s2:%#x", __func__, imm);
-
-  if (W == 1 && op == 2)
-    illegal_instruction (dc);
+    imm = uimm4s2 (offset);
 
   ea = tcg_temp_new();
   tcg_gen_addi_tl(ea, cpu_preg[ptr], imm);
   if (W == 0)
     {
       if (op == 0)
-	{
-	  TRACE_INSN (cpu, "R%i = [P%i + %s];", reg, ptr, imm_str);
-	  tcg_gen_qemu_ld32u(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = [Preg{ptr} + imm{offset}]; */
+	tcg_gen_qemu_ld32u(cpu_dreg[reg], ea, dc->mem_idx);
       else if (op == 1)
-	{
-	  TRACE_INSN (cpu, "R%i = W[P%i + %s] (Z);", reg, ptr, imm_str);
-	  tcg_gen_qemu_ld16u(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = W[Preg{ptr} + imm{offset}] (Z); */
+	tcg_gen_qemu_ld16u(cpu_dreg[reg], ea, dc->mem_idx);
       else if (op == 2)
-	{
-	  TRACE_INSN (cpu, "R%i = W[P%i + %s] (X);", reg, ptr, imm_str);
-	  tcg_gen_qemu_ld16s(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = W[Preg{ptr} + imm{offset}] (X); */
+	tcg_gen_qemu_ld16s(cpu_dreg[reg], ea, dc->mem_idx);
       else if (op == 3)
-	{
-	  TRACE_INSN (cpu, "P%i = [P%i + %s];", reg, ptr, imm_str);
-	  tcg_gen_qemu_ld32u(cpu_preg[reg], ea, dc->mem_idx);
-	}
+	/* P%i = [Preg{ptr} + imm{offset}]; */
+	tcg_gen_qemu_ld32u(cpu_preg[reg], ea, dc->mem_idx);
     }
   else
     {
       if (op == 0)
-	{
-	  TRACE_INSN (cpu, "[P%i + %s] = R%i;", ptr, imm_str, reg);
-	  tcg_gen_qemu_st32(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* [Preg{ptr} + imm{offset}] = Dreg{reg}; */
+	tcg_gen_qemu_st32(cpu_dreg[reg], ea, dc->mem_idx);
       else if (op == 1)
-	{
-	  TRACE_INSN (cpu, "W[P%i + %s] = R%i;", ptr, imm_str, reg);
-	  tcg_gen_qemu_st16(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* W[Preg{ptr} + imm{offset}] = Dreg{reg}; */
+	tcg_gen_qemu_st16(cpu_dreg[reg], ea, dc->mem_idx);
       else if (op == 3)
-	{
-	  TRACE_INSN (cpu, "[P%i + %s] = P%i;", ptr, imm_str, reg);
-	  tcg_gen_qemu_st32(cpu_preg[reg], ea, dc->mem_idx);
-	}
+	/* [Preg{ptr} + imm{offset}] = P%i; */
+	tcg_gen_qemu_st32(cpu_preg[reg], ea, dc->mem_idx);
     }
   tcg_temp_free(ea);
 }
@@ -3661,25 +3473,17 @@ decode_LoopSetup_0 (DisasContext *dc, bu16 iw0, bu16 iw1, target_ulong pc)
 
   TRACE_EXTRACT (cpu, "%s: rop:%i c:%i soffset:%i reg:%i eoffset:%i",
 		 __func__, rop, c, soffset, reg, eoffset);
-  TRACE_DECODE (cpu, "%s: s_pcrel4:%#x e_lppcrel10:%#x",
-		__func__, spcrel, epcrel);
 
   if (rop == 0)
-    {
-      TRACE_INSN (cpu, "LSETUP (%#x, %#x) LC%i;", spcrel, epcrel, c);
-    }
+    /* LSETUP (imm{soffset}, imm{eoffset}) LCreg{c}; */;
   else if (rop == 1 && reg <= 7)
-    {
-      TRACE_INSN (cpu, "LSETUP (%#x, %#x) LC%i = P%i;", spcrel, epcrel, c, reg);
-      tcg_gen_mov_tl(cpu_lcreg[c], cpu_preg[reg]);
-    }
+    /* LSETUP (imm{soffset}, imm{eoffset}) LCreg{c} = Preg{reg}; */
+    tcg_gen_mov_tl(cpu_lcreg[c], cpu_preg[reg]);
   else if (rop == 3 && reg <= 7)
-    {
-      TRACE_INSN (cpu, "LSETUP (%#x, %#x) LC%i = P%i >> 1;", spcrel, epcrel, c, reg);
-      tcg_gen_shri_tl(cpu_lcreg[c], cpu_preg[reg], 1);
-    }
-  else
-    illegal_instruction (dc);
+    /* LSETUP (imm{soffset}, imm{eoffset}) LCreg{c} = Preg{reg} >> 1; */
+    tcg_gen_shri_tl(cpu_lcreg[c], cpu_preg[reg], 1);
+  /*else
+    illegal_instruction (dc);*/
 
   tcg_gen_movi_tl(cpu_ltreg[c], dc->pc + spcrel);
   tcg_gen_movi_tl(cpu_lbreg[c], dc->pc + epcrel);
@@ -3756,13 +3560,12 @@ decode_CALLa_0 (DisasContext *dc, bu16 iw0, bu16 iw1, target_ulong pc)
   int pcrel = pcrel24 ((msw << 16) | lsw);
 
   TRACE_EXTRACT (cpu, "%s: S:%i msw:%#x lsw:%#x", __func__, S, msw, lsw);
-  TRACE_DECODE (cpu, "%s: pcrel24:%#x", __func__, pcrel);
-
-  TRACE_INSN (cpu, "%s %#x;", S ? "CALL" : "JUMP.L", pcrel);
 
   if (S == 1)
+    /* CALL imm{pcrel}; */
     dc->is_jmp = DISAS_CALL;
   else
+    /* JUMP.L imm{pcrel}; */
     dc->is_jmp = DISAS_JUMP;
   dc->hwloop_callback = gen_hwloop_br_pcrel_imm;
   dc->hwloop_data = (void *)(unsigned long)pcrel;
@@ -3785,16 +3588,13 @@ decode_LDSTidxI_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   bu32 imm_16s4 = imm16s4 (offset);
   bu32 imm_16s2 = imm16s2 (offset);
   bu32 imm_16 = imm16 (offset);
-  const char *imm_16s4_str = imm16s4_str (offset);
-  const char *imm_16s2_str = imm16s2_str (offset);
-  const char *imm_16_str = imm16_str (offset);
   TCGv ea;
 
   TRACE_EXTRACT (cpu, "%s: W:%i Z:%i sz:%i ptr:%i reg:%i offset:%#x",
 		 __func__, W, Z, sz, ptr, reg, offset);
 
-  if (sz == 3)
-    illegal_instruction (dc);
+  /*if (sz == 3)
+    illegal_instruction (dc);*/
 
   ea = tcg_temp_new();
   if (sz == 0)
@@ -3807,71 +3607,41 @@ decode_LDSTidxI_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
   if (W == 0)
     {
       if (sz == 0 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "R%i = [P%i + %s];", reg, ptr, imm_16s4_str);
-//	  SET_DREG (reg, GET_LONG (PREG (ptr) + imm_16s4));
-	  tcg_gen_qemu_ld32u(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = [Preg{ptr] + imm{offset}]; */
+	tcg_gen_qemu_ld32u(cpu_dreg[reg], ea, dc->mem_idx);
       else if (sz == 0 && Z == 1)
-	{
-	  TRACE_INSN (cpu, "P%i = [P%i + %s];", reg, ptr, imm_16s4_str);
-//	  SET_PREG (reg, GET_LONG (PREG (ptr) + imm_16s4));
-	  tcg_gen_qemu_ld32u(cpu_preg[reg], ea, dc->mem_idx);
-	}
+	/* Preg{reg} = [Preg{ptr] + imm{offset}]; */
+	tcg_gen_qemu_ld32u(cpu_preg[reg], ea, dc->mem_idx);
       else if (sz == 1 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "R%i = W[P%i + %s] (Z);", reg, ptr, imm_16s2_str);
-//	  SET_DREG (reg, GET_WORD (PREG (ptr) + imm_16s2));
-	  tcg_gen_qemu_ld16u(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = W[Preg{ptr] + imm{offset}] (Z); */
+	tcg_gen_qemu_ld16u(cpu_dreg[reg], ea, dc->mem_idx);
       else if (sz == 1 && Z == 1)
-	{
-	  TRACE_INSN (cpu, "R%i = W[P%i + %s] (X);", reg, ptr, imm_16s2_str);
-//	  SET_DREG (reg, (bs32) (bs16) GET_WORD (PREG (ptr) + imm_16s2));
-	  tcg_gen_qemu_ld16s(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = W[Preg{ptr} imm{offset}] (X); */
+	tcg_gen_qemu_ld16s(cpu_dreg[reg], ea, dc->mem_idx);
       else if (sz == 2 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "R%i = B[P%i + %s] (Z);", reg, ptr, imm_16_str);
-//	  SET_DREG (reg, GET_BYTE (PREG (ptr) + imm_16));
-	  tcg_gen_qemu_ld8u(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = B[Preg{ptr} + imm{offset}] (Z); */
+	tcg_gen_qemu_ld8u(cpu_dreg[reg], ea, dc->mem_idx);
       else if (sz == 2 && Z == 1)
-	{
-	  TRACE_INSN (cpu, "R%i = B[P%i + %s] (X);", reg, ptr, imm_16_str);
-//	  SET_DREG (reg, (bs32) (bs8) GET_BYTE (PREG (ptr) + imm_16));
-	  tcg_gen_qemu_ld8s(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* Dreg{reg} = B[Preg{ptr} + imm{offset}] (X); */
+	tcg_gen_qemu_ld8s(cpu_dreg[reg], ea, dc->mem_idx);
     }
   else
     {
-      if (sz != 0 && Z != 0)
-	illegal_instruction (dc);
+      /*if (sz != 0 && Z != 0)
+	illegal_instruction (dc);*/
 
       if (sz == 0 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "[P%i + %s] = R%i;", ptr, imm_16s4_str, reg);
-//	  PUT_LONG (PREG (ptr) + imm_16s4, DREG (reg));
-	  tcg_gen_qemu_st32(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* [Preg{ptr} + imm{offset}] = Dreg{reg}; */
+	tcg_gen_qemu_st32(cpu_dreg[reg], ea, dc->mem_idx);
       else if (sz == 0 && Z == 1)
-	{
-	  TRACE_INSN (cpu, "[P%i + %s] = P%i;", ptr, imm_16s4_str, reg);
-//	  PUT_LONG (PREG (ptr) + imm_16s4, PREG (reg));
-	  tcg_gen_qemu_st32(cpu_preg[reg], ea, dc->mem_idx);
-	}
+	/* [Preg{ptr} + imm{offset}] = Preg{reg}; */
+	tcg_gen_qemu_st32(cpu_preg[reg], ea, dc->mem_idx);
       else if (sz == 1 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "W[P%i + %s] = R%i;", ptr, imm_16s2_str, reg);
-//	  PUT_WORD (PREG (ptr) + imm_16s2, DREG (reg));
-	  tcg_gen_qemu_st16(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* W[Preg{ptr} + imm{offset}] = Dreg{reg}; */
+	tcg_gen_qemu_st16(cpu_dreg[reg], ea, dc->mem_idx);
       else if (sz == 2 && Z == 0)
-	{
-	  TRACE_INSN (cpu, "B[P%i + %s] = R%i;", ptr, imm_16_str, reg);
-//	  PUT_BYTE (PREG (ptr) + imm_16, DREG (reg));
-	  tcg_gen_qemu_st8(cpu_dreg[reg], ea, dc->mem_idx);
-	}
+	/* B[Preg{ptr} + imm{offset}] = Dreg{reg}; */
+	tcg_gen_qemu_st8(cpu_dreg[reg], ea, dc->mem_idx);
     }
 
   tcg_temp_free(ea);
@@ -3887,24 +3657,13 @@ decode_linkage_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
      +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
   int R = ((iw0 >> (Linkage_R_bits - 16)) & Linkage_R_mask);
   int framesize = ((iw1 >> Linkage_framesize_bits) & Linkage_framesize_mask);
-//  bu32 sp;
 
   TRACE_EXTRACT (cpu, "%s: R:%i framesize:%#x", __func__, R, framesize);
 
   if (R == 0)
     {
+      /* LINK imm{framesize}; */
       int size = uimm16s4 (framesize);
-//      sp = SPREG;
-      TRACE_INSN (cpu, "LINK %s;", uimm16s4_str (framesize));
-/*
-      sp -= 4;
-      PUT_LONG (sp, RETSREG);
-      sp -= 4;
-      PUT_LONG (sp, FPREG);
-      SET_FPREG (sp);
-      sp -= size;
-      CYCLE_DELAY = 3;
-*/
       tcg_gen_subi_tl(cpu_spreg, cpu_spreg, 4);
       tcg_gen_qemu_st32(cpu_rets, cpu_spreg, dc->mem_idx);
       tcg_gen_subi_tl(cpu_spreg, cpu_spreg, 4);
@@ -3914,16 +3673,8 @@ decode_linkage_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
     }
   else if (framesize == 0)
     {
+      /* UNLINK; */
       /* Restore SP from FP.  */
-//      sp = FPREG;
-      TRACE_INSN (cpu, "UNLINK;");
-/*
-      SET_FPREG (GET_LONG (sp));
-      sp += 4;
-      SET_RETSREG (GET_LONG (sp));
-      sp += 4;
-      CYCLE_DELAY = 2;
-*/
       tcg_gen_mov_tl(cpu_spreg, cpu_fpreg);
       tcg_gen_qemu_ld32u(cpu_fpreg, cpu_spreg, dc->mem_idx);
       tcg_gen_addi_tl(cpu_spreg, cpu_spreg, 4);
@@ -3932,8 +3683,6 @@ decode_linkage_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
     }
   else
     illegal_instruction (dc);
-
-//  SET_SPREG (sp);
 }
 
 static void
@@ -3969,6 +3718,7 @@ decode_dsp32mac_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 		 __func__, M, mmod, MM, P, w1, op1, h01, h11, w0, op0, h00, h10,
 		 dst, src0, src1);
 
+  /*
   if (w0 == 0 && w1 == 0 && op1 == 3 && op0 == 3)
     illegal_instruction (dc);
 
@@ -3980,6 +3730,7 @@ decode_dsp32mac_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
   if (((1 << mmod) & (P ? 0x131b : 0x1b5f)) == 0)
     illegal_instruction (dc);
+  */
 
   /* XXX: Missing TRACE_INSN - this is as good as it gets for now  */
   if (w0 && w1 && P)
@@ -4679,7 +4430,6 @@ unhandled_instruction (dc, "A0 -= A1 (W32)");
       bool sBit_a, sBit_b;
 
       TRACE_INSN (cpu, "R%i.%s = R%i (RND);", dst0, HL == 0 ? "L" : "H", src0);
-      TRACE_DECODE (cpu, "R%i.%s = R%i:%#x (RND);", dst0, HL == 0 ? "L" : "H", src0, res);
 
       sBit_b = !!(res & 0x80000000);
 
@@ -5117,10 +4867,6 @@ unhandled_instruction (dc, "A0 += A1 (W32)");
 
       TRACE_INSN (cpu, "R%i = A%i + A%i, R%i = A%i - A%i%s",
 		  dst1, !aop, aop, dst0, !aop, aop, amod1 (s, x));
-      TRACE_DECODE (cpu, "R%i = A%i:%#"PRIx64" + A%i:%#"PRIx64", "
-			 "R%i = A%i:%#"PRIx64" - A%i:%#"PRIx64"%s",
-		dst1, !aop, aop ? acc0 : acc1, aop, aop ? acc1 : acc0,
-		dst0, !aop, aop ? acc0 : acc1, aop, aop ? acc1 : acc0, amod1 (s, x));
 
       if (dst0 == dst1)
 	illegal_instruction_combination (dc);
@@ -5656,7 +5402,6 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       bu40 acc = get_unextended_acc (cpu, HLs);
 
       TRACE_INSN (cpu, "A%i = ROT A%i BY R%i.L;", HLs, HLs, src0);
-      TRACE_DECODE (cpu, "A%i:%#"PRIx64" shift:%i CC:%i", HLs, acc, shift, cc);
 
       acc = rot40 (acc, shift, &cc);
       SET_AREG (HLs, acc);
@@ -5670,7 +5415,6 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
       HLs = !!HLs;
       TRACE_INSN (cpu, "A%i = ASHIFT A%i BY R%i.L;", HLs, HLs, src0);
-      TRACE_DECODE (cpu, "A%i:%#"PRIx64" shift:%i", HLs, val, shft);
 
       if (shft <= 0)
 	val = ashiftrt (cpu, val, -shft, 40);
@@ -5785,8 +5529,6 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       bu32 ret, cc = CCREG;
 
       TRACE_INSN (cpu, "R%i = ROT R%i BY R%i.L;", dst0, src1, src0);
-      TRACE_DECODE (cpu, "R%i:%#x R%i:%#x shift:%i CC:%i",
-		    dst0, DREG (dst0), src1, src, shift, cc);
 
       ret = rot32 (src, shift, &cc);
       STORE (DREG (dst0), ret);
@@ -6360,7 +6102,6 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       bu40 acc = get_unextended_acc (cpu, HLs);
 
       TRACE_INSN (cpu, "A%i = ROT A%i BY %i;", HLs, HLs, shift);
-      TRACE_DECODE (cpu, "A%i:%#"PRIx64" shift:%i CC:%i", HLs, acc, shift, cc);
 
       acc = rot40 (acc, shift, &cc);
       SET_AREG (HLs, acc);
@@ -6568,9 +6309,6 @@ decode_dsp32shiftimm_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 
       TRACE_INSN (cpu, "R%i = ROT R%i BY %i;", dst0, src1, shift);
 /*
-      TRACE_DECODE (cpu, "R%i:%#x R%i:%#x shift:%i CC:%i",
-		    dst0, DREG (dst0), src1, src, shift, cc);
-
       ret = rot32 (src, shift, &cc);
       STORE (DREG (dst0), ret);
       if (shift)
