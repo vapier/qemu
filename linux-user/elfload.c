@@ -1298,8 +1298,6 @@ static void load_elf_image(const char *image_name, int image_fd,
             }
 #ifdef CONFIG_USE_FDPIC
             ++info->nsegs;
-        } else if (phdr[i].p_type == PT_DYNAMIC) {
-            info->pt_dynamic_addr = phdr[i].p_vaddr;
 #endif
         }
     }
@@ -1387,12 +1385,17 @@ static void load_elf_image(const char *image_name, int image_fd,
             qemu_malloc(sizeof(*loadsegs) * info->nsegs);
 
         for (i = 0; i < ehdr->e_phnum; ++i) {
-            if (phdr[i].p_type != PT_LOAD)
-                continue;
-            loadsegs->addr = phdr[i].p_vaddr + load_bias;
-            loadsegs->p_vaddr = phdr[i].p_vaddr;
-            loadsegs->p_memsz = phdr[i].p_memsz;
-			++loadsegs;
+            switch (phdr[i].p_type) {
+            case PT_DYNAMIC:
+                info->pt_dynamic_addr = phdr[i].p_vaddr + load_bias;
+                break;
+            case PT_LOAD:
+                loadsegs->addr = phdr[i].p_vaddr + load_bias;
+                loadsegs->p_vaddr = phdr[i].p_vaddr;
+                loadsegs->p_memsz = phdr[i].p_memsz;
+			    ++loadsegs;
+                break;
+            }
         }
     }
 #endif
