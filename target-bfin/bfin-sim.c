@@ -42,7 +42,7 @@ typedef int64_t bs64;
 #define _TRACE_STUB(cpu, fmt, args...) do { if (0) printf (fmt, ## args); } while (0)
 #define TRACE_INSN(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_IN_ASM, fmt "\n", ## args); } while (0)
 #define TRACE_DECODE(...) _TRACE_STUB(__VA_ARGS__)
-#define TRACE_EXTRACT(cpu, fmt, args...) do { qemu_log_mask(CPU_LOG_TB_CPU, fmt "\n", ## args); } while (0)
+#define TRACE_EXTRACT(cpu, fmt, args...) do { if (0) qemu_log_mask(CPU_LOG_TB_CPU, fmt "\n", ## args); } while (0)
 
 #define M_S2RND 1
 #define M_T     2
@@ -3122,13 +3122,13 @@ decode_dagMODim_0 (DisasContext *dc, bu16 iw0)
     {
       TRACE_INSN (cpu, "I%i += M%i;", i, m);
 //      dagadd (cpu, i, MREG (m));
-      tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[i]);
+      tcg_gen_add_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
     }
   else if (op == 1 && br == 0)
     {
       TRACE_INSN (cpu, "I%i -= M%i;", i, m);
 //      dagsub (cpu, i, MREG (m));
-      tcg_gen_sub_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[i]);
+      tcg_gen_sub_tl(cpu_ireg[i], cpu_ireg[i], cpu_mreg[m]);
     }
   else
     illegal_instruction (dc);
