@@ -1180,12 +1180,12 @@ decode_multfunc (DisasContext *dc, int h0, int h1, int src0, int src1, int mmod,
   else
     tcg_gen_andi_tl(s1, cpu_dreg[src1], 0xffff);
 
-/*
-  sgn0 = -(s0 & 0x8000);
-  sgn1 = -(s1 & 0x8000);
+//  sgn0 = -(s0 & 0x8000);
+//  sgn1 = -(s1 & 0x8000);
 
   if (MM)
-    s0 |= sgn0;
+    //s0 |= sgn0;
+    tcg_gen_ext16s_tl(s0, s0);
   else
     switch (mmod)
       {
@@ -1196,8 +1196,10 @@ decode_multfunc (DisasContext *dc, int h0, int h1, int src0, int src1, int mmod,
       case M_ISS2:
       case M_IH:
       case M_W32:
-	s0 |= sgn0;
-	s1 |= sgn1;
+//	s0 |= sgn0;
+//	s1 |= sgn1;
+	tcg_gen_ext16s_tl(s0, s0);
+	tcg_gen_ext16s_tl(s1, s1);
 	break;
       case M_FU:
       case M_IU:
@@ -1206,7 +1208,6 @@ decode_multfunc (DisasContext *dc, int h0, int h1, int src0, int src1, int mmod,
       default:
 	illegal_instruction (dc);
       }
-*/
 
 //  val = s0 * s1;
   val = tcg_temp_local_new();
