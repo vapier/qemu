@@ -788,14 +788,15 @@ static inline void init_thread(struct target_pt_regs *regs, struct image_info *i
 	if (infop->personality == PER_LINUX_FDPIC) {
 		if (infop->other_info) {
 			/* dynamic */
-			regs->p0 = tswapl(infop->other_info->loadmap_addr);
-			regs->p1 = tswapl(infop->loadmap_addr);
+			regs->p0 = tswapl(infop->loadmap_addr);
+			regs->p1 = tswapl(infop->other_info->loadmap_addr);
+			regs->p2 = tswapl(infop->other_info->pt_dynamic_addr);
 		} else {
 			/* static */
 			regs->p0 = tswapl(infop->loadmap_addr);
 			regs->p1 = 0;
+			regs->p2 = tswapl(infop->pt_dynamic_addr);
 		}
-		regs->p2 = tswapl(infop->pt_dynamic_addr);
 		regs->r7 = 0;
 	}
 	regs->pc = tswapl(infop->entry);
