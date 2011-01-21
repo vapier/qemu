@@ -768,6 +768,15 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
 		break;
 
+	case ASTAT_OP_NEGATE:	/* [0] = -[1] */
+		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
+		tcg_gen_setcondi_tl(TCG_COND_EQ, tmp, cpu_astat_arg[0], 0x80000000);
+		_gen_astat_store(ASTAT_V, tmp);
+		/* XXX: Should "VS |= V;" */
+		tcg_gen_setcondi_tl(TCG_COND_EQ, tmp, cpu_astat_arg[0], 0);
+		_gen_astat_store(ASTAT_AC0, tmp);
+		break;
+
 	case ASTAT_OP_SUB32:	/* [0] = [1] - [2] */
 		tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[2], cpu_astat_arg[1]);
 		_gen_astat_store(ASTAT_AC0, tmp);

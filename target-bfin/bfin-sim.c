@@ -2632,16 +2632,10 @@ decode_ALU2op_0 (DisasContext *dc, bu16 iw0)
     }
   else if (opc == 14)
     {
-//      bu32 val = DREG (src);
-      TRACE_INSN (cpu, "R%i = - R%i;", dst, src);
-//      SET_DREG (dst, -val);
-//      setflags_nz (cpu, DREG (dst));
-//      SET_ASTATREG (v, val == 0x80000000);
-//      if (ASTATREG (v))
-//	SET_ASTATREG (vs, 1);
-//      SET_ASTATREG (ac0, val == 0x0);
+      /* Dreg{dst} = -Dreg{src}; */
       /* XXX: Documentation isn't entirely clear about av0 and av1.  */
       tcg_gen_neg_tl(cpu_dreg[dst], cpu_dreg[src]);
+      astat_queue_state1(dc, ASTAT_OP_NEGATE, cpu_dreg[dst]);
     }
   else if (opc == 15)
     {
