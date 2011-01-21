@@ -1042,14 +1042,14 @@ reg_check_sup (DisasContext *dc, int grp, int reg)
 
 #if 0
 static void
-reg_write (DisasContext *dc, int grp, int reg, bu32 value)
+reg_write (DisasContext *dc, int grp, int reg, TCGv tmp)
 {
-  bu32 *whichreg;
+//  bu32 *whichreg;
 
   /* ASTAT is special!  */
   if (grp == 4 && reg == 6)
     {
-      SET_ASTAT (value);
+      gen_astat_store(dc, tmp);
       return;
     }
 
@@ -1712,7 +1712,8 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
   const char *reg_name = get_allreg_name (grp, reg);
 //  bu32 value;
 //  bu32 sp = SPREG;
-  TCGv treg;
+  TCGv treg, tmp;
+  TCGv_i64 tmp64;
 
   TRACE_EXTRACT (cpu, "%s: W:%i grp:%i reg:%i", __func__, W, grp, reg);
   TRACE_DECODE (cpu, "%s: reg:%s", __func__, reg_name);
@@ -1743,16 +1744,49 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
 */
       if (grp == 4 && reg == 6)
 	{
-	  TCGv tmp = tcg_temp_new();
+	  /* Pop ASTAT */
+	  tmp = tcg_temp_new();
 	  tcg_gen_qemu_ld32u(tmp, cpu_spreg, dc->mem_idx);
 	  gen_astat_store(dc, tmp);
 	  tcg_temp_free(tmp);
+	}
+      else if (grp == 4 && (reg == 0 || reg == 2))
+	{
+	  /* Pop A#.X */
+	  tmp = tcg_temp_new();
+	  tcg_gen_qemu_ld32u(tmp, cpu_spreg, dc->mem_idx);
+	  tcg_gen_andi_tl(tmp, tmp, 0xff);
+	  tmp64 = tcg_temp_new_i64();
+	  tcg_gen_extu_i32_i64(tmp64, tmp);
+	  tcg_temp_free(tmp);
+
+	  tcg_gen_andi_i64(cpu_areg[reg >> 1], cpu_areg[reg >> 1], 0xffffffff);
+	  tcg_gen_shli_i64(tmp64, tmp64, 32);
+	  tcg_gen_or_i64(cpu_areg[reg >> 1], cpu_areg[reg >> 1], tmp64);
+	  tcg_temp_free_i64(tmp64);
+	}
+      else if (grp == 4 && (reg == 1 || reg == 3))
+	{
+	  /* Pop A#.W */
+	  tcg_gen_andi_i64(cpu_areg[reg >> 1], cpu_areg[reg >> 1], 0xff00000000);
+	  tmp = tcg_temp_new();
+	  tcg_gen_qemu_ld32u(tmp, cpu_spreg, dc->mem_idx);
+	  tmp64 = tcg_temp_new_i64();
+	  tcg_gen_extu_i32_i64(tmp64, tmp);
+	  tcg_temp_free(tmp);
+	  tcg_gen_or_i64(cpu_areg[reg >> 1], cpu_areg[reg >> 1], tmp64);
+	  tcg_temp_free_i64(tmp64);
 	}
       else
 	{
 	  treg = get_allreg (dc, grp, reg);
 	  tcg_gen_qemu_ld32u(treg, cpu_spreg, dc->mem_idx);
+
+	  if (grp == 6 && (reg == 1 || reg == 4))
+	    /* LT loads auto clear the LSB */
+	    tcg_gen_andi_tl(treg, treg, ~1);
 	}
+
       tcg_gen_addi_tl(cpu_spreg, cpu_spreg, 4);
       gen_maybe_lb_exit_tb(dc, &treg);
     }
@@ -1771,8 +1805,29 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
       tcg_gen_subi_tl(cpu_spreg, cpu_spreg, 4);
       if (grp == 4 && reg == 6)
 	{
-	  TCGv tmp = tcg_temp_new();
+	  /* Push ASTAT */
+	  tmp = tcg_temp_new();
 	  gen_helper_astat_load(tmp);
+	  tcg_gen_qemu_st32(tmp, cpu_spreg, dc->mem_idx);
+	  tcg_temp_free(tmp);
+	}
+      else if (grp == 4 && (reg == 0 || reg == 2))
+	{
+	  /* Push A#.X */
+	  tmp64 = tcg_temp_new_i64();
+	  tcg_gen_shri_i64(tmp64, cpu_areg[reg >> 1], 32);
+	  tmp = tcg_temp_new();
+	  tcg_gen_trunc_i64_i32(tmp, tmp64);
+	  tcg_temp_free_i64(tmp64);
+	  tcg_gen_andi_tl(tmp, tmp, 0xff);
+	  tcg_gen_qemu_st32(tmp, cpu_spreg, dc->mem_idx);
+	  tcg_temp_free(tmp);
+	}
+      else if (grp == 4 && (reg == 1 || reg == 3))
+	{
+	  /* Push A#.W */
+	  tmp = tcg_temp_new();
+	  tcg_gen_trunc_i64_i32(tmp, cpu_areg[reg >> 1]);
 	  tcg_gen_qemu_st32(tmp, cpu_spreg, dc->mem_idx);
 	  tcg_temp_free(tmp);
 	}
@@ -2357,6 +2412,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
  valid_move:
   if (gs == 4 && src == 6)
     {
+      /* Reads of ASTAT */
       tmp = tcg_temp_new();
       gen_helper_astat_load(tmp);
       reg_src = tmp;
@@ -2364,7 +2420,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
     }
   else if (gs == 4 && (src == 0 || src == 2))
     {
-      /* Reads from A#.X */
+      /* Reads of A#.X */
       tmp = tcg_temp_new();
       tmp64 = tcg_temp_new_i64();
       tcg_gen_shri_i64(tmp64, cpu_areg[src >> 1], 32);
@@ -2376,6 +2432,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
     }
   else if (gs == 4 && (src == 1 || src == 3))
     {
+      /* Reads of A#.W */
       tmp = tcg_temp_new();
       tcg_gen_trunc_i64_i32(tmp, cpu_areg[src >> 1]);
       reg_src = tmp;
@@ -2389,13 +2446,19 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
 
   if (gd == 4 && dst == 6)
     {
+      /* Writes to ASTAT */
       gen_astat_store(dc, reg_src);
     }
   else if (gd == 4 && (dst == 0 || dst == 2))
     {
-      /* XXX: Probably should saturate here */
-//      tcg_gen_andi_tl(cpu_axreg[!!dst], reg_src, 0xff);
-abort();
+      /* Writes to A#.X */
+      tmp64 = tcg_temp_new_i64();
+      tcg_gen_andi_i64(cpu_areg[dst >> 1], cpu_areg[dst >> 1], 0xffffffff);
+      tcg_gen_extu_i32_i64(tmp64, reg_src);
+      tcg_gen_andi_i64(tmp64, tmp64, 0xff);
+      tcg_gen_shli_i64(tmp64, tmp64, 32);
+      tcg_gen_or_i64(cpu_areg[dst >> 1], cpu_areg[dst >> 1], tmp64);
+      tcg_temp_free_i64(tmp64);
     }
   else if (gd == 4 && (dst == 1 || dst == 3))
     {
@@ -2408,6 +2471,7 @@ abort();
     }
   else if (gd == 6 && (dst == 1 || dst == 4))
     {
+      /* Writes to LT# */
       /* LT loads auto clear the LSB */
       tcg_gen_andi_tl(cpu_ltreg[dst >> 2], reg_src, ~1);
     }
