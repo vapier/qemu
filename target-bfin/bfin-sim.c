@@ -5841,7 +5841,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       TRACE_INSN (cpu, "R%i.L = SIGNBITS R%i;", dst0, src1);
 //      SET_DREG_L (dst0, signbits (sv1, 32));
       tmp = tcg_temp_new();
-      gen_helper_signbitsi(tmp, cpu_dreg[src1], 32);
+      gen_signbitsi_tl(tmp, cpu_dreg[src1], 32);
       gen_mov_l_tl(cpu_dreg[dst0], tmp);
       tcg_temp_free(tmp);
     }
@@ -5851,7 +5851,7 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
       TRACE_INSN (cpu, "R%i.L = SIGNBITS R%i.L;", dst0, src1);
 //      SET_DREG_L (dst0, signbits (sv1, 16));
       tmp = tcg_temp_new();
-      gen_helper_signbitsi(tmp, cpu_dreg[src1], 16);
+      gen_signbitsi_tl(tmp, cpu_dreg[src1], 16);
       gen_mov_l_tl(cpu_dreg[dst0], tmp);
       tcg_temp_free(tmp);
     }
@@ -5862,20 +5862,22 @@ decode_dsp32shift_0 (DisasContext *dc, bu16 iw0, bu16 iw1)
 //      SET_DREG_L (dst0, signbits (sv1 >> 16, 16));
       tmp = tcg_temp_new();
       tcg_gen_shri_tl(tmp, cpu_dreg[src1], 16);
-      gen_helper_signbitsi(tmp, tmp, 16);
+      gen_signbitsi_tl(tmp, tmp, 16);
       gen_mov_l_tl(cpu_dreg[dst0], tmp);
       tcg_temp_free(tmp);
     }
-#if 0
   else if ((sop == 0 || sop == 1) && sopcde == 6)
     {
-      bu64 acc = AXREG (sop);
+//      bu64 acc = AXREG (sop);
       TRACE_INSN (cpu, "R%i.L = SIGNBITS A%i;", dst0, sop);
-      acc <<= 32;
-      acc |= AWREG (sop);
-      SET_DREG_L (dst0, signbits (acc, 40) & 0xFFFF);
+//      acc <<= 32;
+//      acc |= AWREG (sop);
+//      SET_DREG_L (dst0, signbits (acc, 40) & 0xFFFF);
+      tmp = tcg_temp_new();
+      gen_signbitsi_i64_i32(tmp, cpu_areg[sop], 40);
+      gen_mov_l_tl(cpu_dreg[dst0], tmp);
+      tcg_temp_free(tmp);
     }
-#endif
   else if (sop == 3 && sopcde == 6)
     {
 //      bu32 v = ones (DREG (src1));

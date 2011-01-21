@@ -84,3 +84,26 @@ uint32_t helper_signbits(uint32_t val, uint32_t size)
 
     return count;
 }
+
+/* Count number of leading bits that match the sign bit */
+uint32_t helper_signbits_64(uint64_t val, uint32_t size)
+{
+    uint64_t mask = (uint64_t)1 << (size - 1);
+    uint64_t bit = val & mask;
+    uint32_t count = 0;
+
+    for (;;) {
+        mask >>= 1;
+        bit >>= 1;
+        if (mask == 0)
+            break;
+        if ((val & mask) != bit)
+            break;
+        ++count;
+    }
+
+    if (size == 40)
+        count -= 8;
+
+    return count;
+}

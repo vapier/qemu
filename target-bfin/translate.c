@@ -482,10 +482,17 @@ static void gen_extNu_tl(TCGv dst, TCGv src, uint32_t n)
 	tcg_gen_andi_tl(dst, src, ~((1 << n) - 1));
 }
 
-static void gen_helper_signbitsi(TCGv dst, TCGv src, uint32_t size)
+static void gen_signbitsi_tl(TCGv dst, TCGv src, uint32_t size)
 {
 	TCGv tmp_size = tcg_const_tl(size);
 	gen_helper_signbits(dst, src, tmp_size);
+	tcg_temp_free(tmp_size);
+}
+
+static void gen_signbitsi_i64_i32(TCGv dst, TCGv_i64 src, uint32_t size)
+{
+	TCGv tmp_size = tcg_const_tl(size);
+	gen_helper_signbits_64(dst, src, tmp_size);
 	tcg_temp_free(tmp_size);
 }
 
