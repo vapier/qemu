@@ -1788,7 +1788,7 @@ decode_PushPopReg_0 (DisasContext *dc, bu16 iw0)
 	}
 
       tcg_gen_addi_tl(cpu_spreg, cpu_spreg, 4);
-      gen_maybe_lb_exit_tb(dc, &treg);
+      gen_maybe_lb_exit_tb(dc, treg);
     }
   else
     {
@@ -2479,7 +2479,7 @@ decode_REGMV_0 (DisasContext *dc, bu16 iw0)
     {
       reg_dst = get_allreg(dc, gd, dst);
       tcg_gen_mov_tl(reg_dst, reg_src);
-      gen_maybe_lb_exit_tb(dc, &reg_dst);
+      gen_maybe_lb_exit_tb(dc, reg_dst);
     }
 
   if (istmp)

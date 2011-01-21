@@ -322,9 +322,9 @@ static void cec_require_supervisor(DisasContext *dc)
  * is probably missing LC/LT handling which we want.  In both cases,
  * we need to regenerate the block.
  */
-static void gen_maybe_lb_exit_tb(DisasContext *dc, TCGv *reg)
+static void gen_maybe_lb_exit_tb(DisasContext *dc, TCGv reg)
 {
-	if (reg != &cpu_lbreg[0] && reg != &cpu_lbreg[1])
+	if (!TCGV_EQUAL(reg, cpu_lbreg[0]) && !TCGV_EQUAL(reg, cpu_lbreg[1]))
 		return;
 
 	//tb_invalidate_phys_page_range
