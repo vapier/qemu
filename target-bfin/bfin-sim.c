@@ -4546,12 +4546,14 @@ unhandled_instruction (dc, "A0 += A1 (W32)");
 	SET_ASTATREG (av0s, v);
 */
 
-      if (aop == 0)	/* Dregs = A0 += A1 */
+      if (aop == 0)
 	{
+	  /* Dregs = A0 += A1 */
 	  tcg_gen_trunc_i64_i32(cpu_dreg[dst0], cpu_areg[0]);
 	}
-      else	/* Dregs_lo = A0 += A1 */
+      else if (aop == 1)
 	{
+	  /* Dregs_lo = A0 += A1 */
 	  tmp = tcg_temp_new();
 	  tcg_gen_trunc_i64_i32(tmp, cpu_areg[0]);
 	  gen_mov_l_tl(cpu_dreg[dst0], tmp);
