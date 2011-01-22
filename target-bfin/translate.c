@@ -650,6 +650,16 @@ static void _gen_astat_update_az(TCGv reg, TCGv tmp)
 	_gen_astat_store(ASTAT_AZ, tmp);
 }
 
+static void _gen_astat_update_az2(TCGv reg, TCGv reg2, TCGv tmp)
+{
+	TCGv tmp2 = tcg_temp_new();
+	tcg_gen_setcondi_tl(TCG_COND_EQ, tmp, reg, 0);
+	tcg_gen_setcondi_tl(TCG_COND_EQ, tmp2, reg2, 0);
+	tcg_gen_or_tl(tmp, tmp, tmp2);
+	tcg_temp_free(tmp2);
+	_gen_astat_store(ASTAT_AZ, tmp);
+}
+
 static void _gen_astat_update_an(TCGv reg, TCGv tmp, uint32_t len)
 {
 	tcg_gen_setcondi_tl(TCG_COND_GEU, tmp, reg, 1 << (len - 1));
@@ -665,10 +675,6 @@ static void _gen_astat_update_nz(TCGv reg, TCGv tmp)
 static void gen_astat_update(DisasContext *dc, bool clear)
 {
 	TCGv tmp = tcg_temp_local_new();
-
-	/* XXX: Might not be correct ... */
-//	if (dc->astat_op == ASTAT_OP_DYNAMIC)
-//		dc->astat_op = dc->env->astat_op;
 
 	switch (dc->astat_op) {
 	case ASTAT_OP_ABS:	/* [0] = ABS( [1] ) */
@@ -782,6 +788,14 @@ static void gen_astat_update(DisasContext *dc, bool clear)
 		_gen_astat_store(ASTAT_AC0, tmp);
 		_gen_astat_store(ASTAT_AC0_COPY, tmp);
 		_gen_astat_update_nz(cpu_astat_arg[0], tmp);
+		break;
+
+	case ARRAY_OP_VECTOR_ADD_ADD:	/* [0][1] = [2] +|+ [3] */
+	case ARRAY_OP_VECTOR_ADD_SUB:	/* [0][1] = [2] +|- [3] */
+	case ARRAY_OP_VECTOR_SUB_SUB:	/* [0][1] = [2] -|- [3] */
+	case ARRAY_OP_VECTOR_SUB_ADD:	/* [0][1] = [2] -|+ [3] */
+		_gen_astat_update_az2(cpu_astat_arg[0], cpu_astat_arg[1], tmp);
+		/* Need AN, AC0/AC1, V */
 		break;
 
 	default:

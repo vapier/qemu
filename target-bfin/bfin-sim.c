@@ -4402,16 +4402,10 @@ unhandled_instruction (dc, "A0 -= A1 (W32)");
       else
 	tcg_gen_add_tl(t1, s0, s1);
 
-      /* Need AN, AC0/AC1, V */
-      tcg_gen_andi_tl(t0, t0, 0xffff);
-      tcg_gen_andi_tl(t1, t1, 0xffff);
-      tcg_gen_setcondi_tl(TCG_COND_EQ, s0, t0, 0);
-      tcg_gen_setcondi_tl(TCG_COND_EQ, s1, t1, 0);
-      tcg_gen_or_tl(s0, s0, s1);
-      _gen_astat_store(ASTAT_AZ, s0);
-
       tcg_temp_free(s0);
       tcg_temp_free(s1);
+
+      astat_queue_state2(dc, ARRAY_OP_VECTOR_ADD_ADD + aop, t0, t1);
 
 /*
       SET_ASTATREG (ac1, ac1_i);
@@ -4421,25 +4415,18 @@ unhandled_instruction (dc, "A0 -= A1 (W32)");
       SET_ASTATREG (v, v_i);
       if (v_i)
 	SET_ASTATREG (vs, v_i);
-
-      t0 &= 0xFFFF;
-      t1 &= 0xFFFF;
-      if (x)
-	SET_DREG (dst0, (t1 << 16) | t0);
-      else
-	SET_DREG (dst0, (t0 << 16) | t1);
 */
-
-      
 
       if (x)
 	{
+	  /* dst0.h = t1; dst0.l = t0 */
 	  tcg_gen_ext16u_tl(cpu_dreg[dst0], t0);
 	  tcg_gen_shli_tl(t1, t1, 16);
 	  tcg_gen_or_tl(cpu_dreg[dst0], cpu_dreg[dst0], t1);
 	}
       else
 	{
+	  /* dst0.h = t0; dst0.l = t1 */
 	  tcg_gen_ext16u_tl(cpu_dreg[dst0], t1);
 	  tcg_gen_shli_tl(t0, t0, 16);
 	  tcg_gen_or_tl(cpu_dreg[dst0], cpu_dreg[dst0], t0);

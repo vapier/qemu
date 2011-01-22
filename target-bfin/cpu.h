@@ -159,6 +159,10 @@ enum astat_ops {
 	ASTAT_OP_NEGATE,
 	ASTAT_OP_SUB16,
 	ASTAT_OP_SUB32,
+	ARRAY_OP_VECTOR_ADD_ADD,	/* +|+ */
+	ARRAY_OP_VECTOR_ADD_SUB,	/* +|- */
+	ARRAY_OP_VECTOR_SUB_SUB,	/* -|- */
+	ARRAY_OP_VECTOR_SUB_ADD,	/* -|+ */
 };
 
 typedef void (*hwloop_callback)(struct DisasContext *dc, int loop);
