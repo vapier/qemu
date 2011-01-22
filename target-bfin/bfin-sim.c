@@ -4989,32 +4989,56 @@ unhandled_instruction (dc, "A0 += A1 (W32)");
       tcg_temp_free(tmp);
       tcg_temp_free(dst);
     }
-#if 0
   else if (aop == 1 && aopcde == 24)
     {
-      int order, lo, hi;
-      bu64 comb_src;
-      bu8 bytea, byteb, bytec, byted;
+      /* (Dreg{dst1}, Dreg{dst0} = BYTEUNPACK Dreg{src0+1}:{src0} (R){s}; */
+      TCGv lo, hi;
+      TCGv_i64 tmp64_2;
 
-      TRACE_INSN (cpu, "(R%i, R%i) = BYTEUNPACK R%i:%i%s;",
-		  dst1, dst0, src0 + 1, src0, s ? " (R)" : "");
+      /*if (dst0 == dst1)
+	illegal_instruction_combination (dc);*/
 
-      if (dst0 == dst1)
-	illegal_instruction_combination (dc);
-
-      order = IREG (0) & 0x3;
       if (s)
-	hi = src0, lo = src0 + 1;
+	hi = cpu_dreg[src0], lo = cpu_dreg[src0 + 1];
       else
-	hi = src0 + 1, lo = src0;
-      comb_src = (((bu64)DREG (hi)) << 32) | DREG (lo);
-      bytea = (comb_src >> (0 + 8 * order));
-      byteb = (comb_src >> (8 + 8 * order));
-      bytec = (comb_src >> (16 + 8 * order));
-      byted = (comb_src >> (24 + 8 * order));
-      SET_DREG (dst0, bytea | ((bu32)byteb << 16));
-      SET_DREG (dst1, bytec | ((bu32)byted << 16));
+	hi = cpu_dreg[src0 + 1], lo = cpu_dreg[src0];
+
+      /* Create one field of the two regs */
+      tmp64 = tcg_temp_local_new_i64();
+      tcg_gen_extu_i32_i64(tmp64, hi);
+      tcg_gen_shli_i64(tmp64, tmp64, 32);
+      tmp64_2 = tcg_temp_local_new_i64();
+      tcg_gen_extu_i32_i64(tmp64_2, lo);
+      tcg_gen_or_i64(tmp64, tmp64, tmp64_2);
+
+      /* Adjust the two regs field by the Ireg[0] order */
+      tcg_gen_extu_i32_i64(tmp64_2, cpu_ireg[0]);
+      tcg_gen_andi_i64(tmp64_2, tmp64_2, 0x3);
+      tcg_gen_shli_i64(tmp64_2, tmp64_2, 3);	/* multiply by 8 */
+      tcg_gen_shr_i64(tmp64, tmp64, tmp64_2);
+      tcg_temp_free_i64(tmp64_2);
+
+      /* Now that the 4 bytes we want are in the low 32bit, truncate */
+      tmp = tcg_temp_local_new();
+      tcg_gen_trunc_i64_i32(tmp, tmp64);
+      tcg_temp_free_i64(tmp64);
+
+      /* Load bytea into dst0 */
+      tcg_gen_andi_tl(cpu_dreg[dst0], tmp, 0xff);
+      /* Load byted into dst1 */
+      tcg_gen_shri_tl(cpu_dreg[dst1], tmp, 8);
+      tcg_gen_andi_tl(cpu_dreg[dst1], cpu_dreg[dst1], 0xff0000);
+      /* Load byteb into dst0 */
+      tcg_gen_shli_tl(tmp, tmp, 8);
+      tcg_gen_or_tl(cpu_dreg[dst0], cpu_dreg[dst0], tmp);
+      tcg_gen_andi_tl(cpu_dreg[dst0], cpu_dreg[dst0], 0xff00ff);
+      /* Load bytec into dst1 */
+      tcg_gen_shri_tl(tmp, tmp, 24);
+      tcg_gen_or_tl(cpu_dreg[dst1], cpu_dreg[dst1], tmp);
+      tcg_gen_andi_tl(cpu_dreg[dst1], cpu_dreg[dst1], 0xff00ff);
+      tcg_temp_free(tmp);
     }
+#if 0
   else if (aopcde == 13)
     {
       const char *searchmodes[] = { "GT", "GE", "LT", "LE" };
