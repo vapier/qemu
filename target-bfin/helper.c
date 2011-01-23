@@ -1,8 +1,8 @@
 /*
  * Blackfin helpers
  *
- * Copyright 2007 Mike Frysinger
- * Copyright 2007 Analog Devices, Inc.
+ * Copyright 2007-2011 Mike Frysinger
+ * Copyright 2007-2011 Analog Devices, Inc.
  *
  * Licensed under the Lesser GPL 2 or later.
  */
@@ -24,23 +24,14 @@
 
 void do_interrupt(CPUState *env)
 {
-	env->exception_index = -1;
+    env->exception_index = -1;
 }
 
 int cpu_bfin_handle_mmu_fault(CPUState *env, target_ulong address, int rw,
                               int mmu_idx, int is_softmmu)
 {
     env->exception_index = EXCP_DCPLB_VIOLATE;
-//    fprintf(stderr, "fault at %#x : %#x (%s)\n", env->pc, address, rw ? "read" : "write");
-//    cpu_dump_state(env, stderr, fprintf, 0);
     return 1;
-}
-
-#else
-
-target_phys_addr_t cpu_get_phys_page_debug(CPUState *env, target_ulong addr)
-{
-	return addr;
 }
 
 #endif

@@ -1,22 +1,10 @@
 /*
  * Blackfin emulation
  *
- * Copyright 2007 Mike Frysinger
- * Copyright 2007 Analog Devices, Inc.
+ * Copyright 2007-2011 Mike Frysinger
+ * Copyright 2007-2011 Analog Devices, Inc.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ * Licensed under the Lesser GPL 2 or later.
  */
 
 #ifndef CPU_BFIN_H
@@ -29,8 +17,6 @@ struct DisasContext;
 #include "cpu-defs.h"
 
 #define TARGET_HAS_ICE 1
-
-#define ELF_MACHINE	EM_BLACKFIN
 
 #define EXCP_SYSCALL        0
 #define EXCP_SOFT_BP        1
@@ -57,8 +43,8 @@ struct DisasContext;
 #define BFIN_L1_CACHE_BYTES 32
 
 /* Blackfin does 1K/4K/1M/4M, but for now only support 4k */
-#define TARGET_PAGE_BITS 12
-#define NB_MMU_MODES 2
+#define TARGET_PAGE_BITS    12
+#define NB_MMU_MODES        2
 
 #define TARGET_PHYS_ADDR_SPACE_BITS 32
 #define TARGET_VIRT_ADDR_SPACE_BITS 32
@@ -69,152 +55,126 @@ struct DisasContext;
 #define cpu_gen_code cpu_bfin_gen_code
 #define cpu_signal_handler cpu_bfin_signal_handler
 
+/* Indexes into astat array; matches bitpos in hardware too */
 enum {
-	ASTAT_AZ = 0,
-	ASTAT_AN,
-	ASTAT_AC0_COPY,
-	ASTAT_V_COPY,
-	ASTAT_CC = 5,
-	ASTAT_AQ,
-	ASTAT_RND_MOD = 8,
-	ASTAT_AC0 = 12,
-	ASTAT_AC1,
-	ASTAT_AV0 = 16,
-	ASTAT_AV0S,
-	ASTAT_AV1,
-	ASTAT_AV1S,
-	ASTAT_V = 24,
-	ASTAT_VS
+    ASTAT_AZ = 0,
+    ASTAT_AN,
+    ASTAT_AC0_COPY,
+    ASTAT_V_COPY,
+    ASTAT_CC = 5,
+    ASTAT_AQ,
+    ASTAT_RND_MOD = 8,
+    ASTAT_AC0 = 12,
+    ASTAT_AC1,
+    ASTAT_AV0 = 16,
+    ASTAT_AV0S,
+    ASTAT_AV1,
+    ASTAT_AV1S,
+    ASTAT_V = 24,
+    ASTAT_VS
 };
 
 typedef struct CPUBFINState {
-	CPU_COMMON
-	uint32_t dreg[8];
-	uint32_t preg[8];
-	uint32_t ireg[4];
-	uint32_t mreg[4];
-	uint32_t breg[4];
-	uint32_t lreg[4];
-//	uint32_t axreg[2], awreg[2];
-/*	union {
-		uint64_t a;
-		struct {
-			uint32_t x;
-			uint32_t w;
-		};
-	} areg[2];
-*/
-	uint64_t areg[2];
-	uint32_t rets;
-	uint32_t lcreg[2], ltreg[2], lbreg[2];
-	uint32_t cycles[2];
-	uint32_t uspreg;
-	uint32_t seqstat;
-	uint32_t syscfg;
-	uint32_t reti;
-	uint32_t retx;
-	uint32_t retn;
-	uint32_t rete;
-	uint32_t emudat;
-	uint32_t pc;
+    CPU_COMMON
+    uint32_t dreg[8];
+    uint32_t preg[8];
+    uint32_t ireg[4];
+    uint32_t mreg[4];
+    uint32_t breg[4];
+    uint32_t lreg[4];
+    uint64_t areg[2];
+    uint32_t rets;
+    uint32_t lcreg[2], ltreg[2], lbreg[2];
+    uint32_t cycles[2];
+    uint32_t uspreg;
+    uint32_t seqstat;
+    uint32_t syscfg;
+    uint32_t reti;
+    uint32_t retx;
+    uint32_t retn;
+    uint32_t rete;
+    uint32_t emudat;
+    uint32_t pc;
 
-	/* ASTAT bits; broken up for speeeeeeeed */
-	uint32_t astat[32];
-	/* ASTAT delayed helpers */
-	uint32_t astat_op, astat_arg[3];
+    /* ASTAT bits; broken up for speeeeeeeed */
+    uint32_t astat[32];
+    /* ASTAT delayed helpers */
+    uint32_t astat_op, astat_arg[3];
 } CPUBFINState;
 #define spreg preg[6]
 #define fpreg preg[7]
 
 static inline uint32_t bfin_astat_read(CPUState *env)
 {
-	unsigned int i, ret;
+    unsigned int i, ret;
 
-	ret = 0;
-	for (i = 0; i < 32; ++i)
-		ret |= (env->astat[i] << i);
+    ret = 0;
+    for (i = 0; i < 32; ++i)
+        ret |= (env->astat[i] << i);
 
-	return ret;
+    return ret;
 }
 
 static inline void bfin_astat_write(CPUState *env, uint32_t astat)
 {
-	unsigned int i;
-	for (i = 0; i < 32; ++i)
-		env->astat[i] = !!(astat & (1 << i));
+    unsigned int i;
+    for (i = 0; i < 32; ++i)
+        env->astat[i] = !!(astat & (1 << i));
 }
 
 enum astat_ops {
-	ASTAT_OP_NONE,
-	ASTAT_OP_DYNAMIC,
-	ASTAT_OP_ABS,
-	ASTAT_OP_ADD16,
-	ASTAT_OP_ADD32,
-	ASTAT_OP_COMPARE_SIGNED,
-	ASTAT_OP_COMPARE_UNSIGNED,
-	ASTAT_OP_LOGICAL,
-	ASTAT_OP_LSHIFT,
-	ASTAT_OP_LSHIFT_RT,
-	ASTAT_OP_MIN_MAX,
-	ASTAT_OP_NEGATE,
-	ASTAT_OP_SUB16,
-	ASTAT_OP_SUB32,
-	ARRAY_OP_VECTOR_ADD_ADD,	/* +|+ */
-	ARRAY_OP_VECTOR_ADD_SUB,	/* +|- */
-	ARRAY_OP_VECTOR_SUB_SUB,	/* -|- */
-	ARRAY_OP_VECTOR_SUB_ADD,	/* -|+ */
+    ASTAT_OP_NONE,
+    ASTAT_OP_DYNAMIC,
+    ASTAT_OP_ABS,
+    ASTAT_OP_ADD16,
+    ASTAT_OP_ADD32,
+    ASTAT_OP_ASHIFT16,
+    ASTAT_OP_ASHIFT32,
+    ASTAT_OP_COMPARE_SIGNED,
+    ASTAT_OP_COMPARE_UNSIGNED,
+    ASTAT_OP_LOGICAL,
+    ASTAT_OP_LSHIFT16,
+    ASTAT_OP_LSHIFT32,
+    ASTAT_OP_LSHIFT_RT16,
+    ASTAT_OP_LSHIFT_RT32,
+    ASTAT_OP_MIN_MAX,
+    ASTAT_OP_NEGATE,
+    ASTAT_OP_SUB16,
+    ASTAT_OP_SUB32,
+    ARRAY_OP_VECTOR_ADD_ADD,    /* +|+ */
+    ARRAY_OP_VECTOR_ADD_SUB,    /* +|- */
+    ARRAY_OP_VECTOR_SUB_SUB,    /* -|- */
+    ARRAY_OP_VECTOR_SUB_ADD,    /* -|+ */
 };
 
 typedef void (*hwloop_callback)(struct DisasContext *dc, int loop);
 
 typedef struct DisasContext {
-	CPUState *env;
-	struct TranslationBlock *tb;
-	/* The current PC we're decoding (could be middle of parallel insn) */
-	target_ulong pc;
-	/* Length of current insn (2/4/8) */
-	target_ulong insn_len;
+    CPUState *env;
+    struct TranslationBlock *tb;
+    /* The current PC we're decoding (could be middle of parallel insn) */
+    target_ulong pc;
+    /* Length of current insn (2/4/8) */
+    target_ulong insn_len;
 
-	/* For delayed ASTAT handling */
-	enum astat_ops astat_op;
+    /* For delayed ASTAT handling */
+    enum astat_ops astat_op;
 
-	/* For hardware loop processing */
-	hwloop_callback hwloop_callback;
-	void *hwloop_data;
+    /* For hardware loop processing */
+    hwloop_callback hwloop_callback;
+    void *hwloop_data;
 
-	int is_jmp;
-	int mem_idx;
+    int is_jmp;
+    int mem_idx;
 } DisasContext;
 
 void do_interrupt(CPUState *env);
 CPUState *cpu_init(const char *cpu_model);
 int cpu_exec(CPUState *s);
 int cpu_bfin_signal_handler(int host_signum, void *pinfo, void *puc);
-void bfin_cpu_list(FILE *f, int (*cpu_fprintf)(FILE *f, const char *fmt, ...));
 
-#define MMU_MODE0_SUFFIX _kernel
-#define MMU_MODE1_SUFFIX _user
-#define MMU_KERNEL_IDX  0
-#define MMU_USER_IDX    1
-
-#ifndef CONFIG_USER_ONLY
-static inline int cpu_mmu_index (CPUState *env)
-{
-	if (1) //=env->ipend)
-		return MMU_KERNEL_IDX;
-	else
-		return MMU_USER_IDX;
-#if 0
-        /* Are we in nommu mode?.  */
-        if (!(env->sregs[SR_MSR] & MSR_VM))
-            return MMU_NOMMU_IDX;
-
-	if (env->sregs[SR_MSR] & MSR_UM)
-            return MMU_USER_IDX;
-        return MMU_KERNEL_IDX;
-#endif
-}
-#endif
+#define MMU_KERNEL_IDX 0
+#define MMU_USER_IDX   1
 
 int cpu_bfin_handle_mmu_fault(CPUState *env, target_ulong address, int rw,
                               int mmu_idx, int is_softmmu);
@@ -223,41 +183,30 @@ int cpu_bfin_handle_mmu_fault(CPUState *env, target_ulong address, int rw,
 #if defined(CONFIG_USER_ONLY)
 static inline void cpu_clone_regs(CPUState *env, target_ulong newsp)
 {
-	if (newsp)
-		env->spreg = newsp;
-	//SET_DREG (0, 0);
+    if (newsp)
+        env->spreg = newsp;
 }
 #endif
-
-static inline void cpu_set_tls(CPUState *env, target_ulong newtls)
-{
-}
-
-static inline int cpu_interrupts_enabled(CPUState *env)
-{
-	return 1; //env->[SR_MSR] & MSR_IE;
-}
 
 #include "cpu-all.h"
 #include "exec-all.h"
 
 static inline void cpu_pc_from_tb(CPUState *env, TranslationBlock *tb)
 {
-	env->pc = tb->pc;
+    env->pc = tb->pc;
 }
 
 static inline target_ulong cpu_get_pc(CPUState *env)
 {
-	return env->pc;
+    return env->pc;
 }
 
 static inline void cpu_get_tb_cpu_state(CPUState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)
 {
-	*pc = env->pc;
-	*cs_base = 0;
-	//env->iflags |= 0; //env->sregs[SR_MSR] & MSR_EE;
-	*flags = 1; //env->iflags & 1; //IFLAGS_TB_MASK;
+    *pc = env->pc;
+    *cs_base = 0;
+    *flags = 1;
 }
 
 #endif

@@ -12,6 +12,10 @@ Things we do not handle by design:
 		- no toolchain will output these
 		- things like jumps
 
+	- invalid register combinations
+		- some insns cannot have same register be both source and dest
+		- no toolchain will output these
+
 	- transactional parallel instructions
 		- on the hardware, if a load/store causes an exception, the other
 		  insns do not change register states either.  in qemu, they do,
@@ -25,3 +29,7 @@ Things we do not handle by design:
 		- no one has ever used these instead of AC0 or V
 
 	- no support for RND_MOD
+
+There are a few insns/modes we don't currently handle, but it's more a matter
+of nothing really uses these, so we haven't bothered.  If these matter to you,
+then feel free to request support for them.

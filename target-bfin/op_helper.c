@@ -1,8 +1,8 @@
 /*
  * Blackfin helpers
  *
- * Copyright 2007 Mike Frysinger
- * Copyright 2007 Analog Devices, Inc.
+ * Copyright 2007-2011 Mike Frysinger
+ * Copyright 2007-2011 Analog Devices, Inc.
  *
  * Licensed under the Lesser GPL 2 or later.
  */
