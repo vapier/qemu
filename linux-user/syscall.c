@@ -7671,6 +7671,14 @@ static target_timer_t get_timer_id(abi_long arg)
     return timerid;
 }
 
+#ifdef TARGET_NR_sram_alloc
+struct sram_frag {
+    struct sram_frag *next;
+    abi_ulong addr, size;
+};
+static struct sram_frag *sfrags;
+#endif
+
 /* do_syscall() should always have a single exit point at the end so
    that actions, such as logging of syscall results, can be performed.
    All errnos that do_syscall() returns must be -TARGET_<errcode>. */
@@ -9264,6 +9272,72 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #ifdef TARGET_NR_munlockall
     case TARGET_NR_munlockall:
         ret = get_errno(munlockall());
+        break;
+#endif
+#ifdef TARGET_NR_sram_alloc
+    case TARGET_NR_sram_alloc:
+        {
+            /* We don't want L1 insn to be read/write, but doing that
+             * keeps standard qemu funcs from being able to read/write
+             * that too.  So grant r/w access to all. */
+            int prot = PROT_READ | PROT_WRITE;
+            if ((arg2 & 1 /*L1_INST_SRAM*/) || (arg2 & 8 /*L2_SRAM*/)) {
+                prot |= PROT_EXEC;
+            }
+
+            ret = get_errno(target_mmap(0, arg1, prot, MAP_PRIVATE |
+                                        MAP_ANONYMOUS, -1, 0));
+
+            if (!is_error(ret)) {
+                struct sram_frag *sf = malloc(sizeof(*sf));
+                sf->addr = ret;
+                sf->size = arg1;
+                if (sfrags) {
+                    sf->next = sfrags;
+                    sfrags = sf;
+                } else {
+                    sf->next = NULL;
+                    sfrags = sf;
+                }
+            }
+        }
+        break;
+#endif
+#ifdef TARGET_NR_sram_free
+    case TARGET_NR_sram_free:
+        {
+            struct sram_frag *sf, *prev;
+
+            ret = -TARGET_EINVAL;
+
+            sf = prev = sfrags;
+            while (sf) {
+                if (sf->addr == arg1) {
+                    ret = get_errno(target_munmap(arg1, sf->size));
+                    if (!is_error(ret)) {
+                        if (sfrags == sf) {
+                            sfrags = sf->next;
+                        } else {
+                            prev->next = sf->next;
+                        }
+                        free(sf);
+                    }
+                    break;
+                }
+                prev = sf;
+                sf = sf->next;
+            }
+        }
+        break;
+#endif
+#ifdef TARGET_NR_dma_memcpy
+    case TARGET_NR_dma_memcpy:
+        p = alloca(arg3);
+        if (copy_from_user(p, arg2, arg3))
+            goto efault;
+        if (copy_to_user(arg1, p, arg3))
+            goto efault;
+        ret = arg1;
         break;
 #endif
     case TARGET_NR_truncate:
