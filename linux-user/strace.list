@@ -115,6 +115,9 @@
 #ifdef TARGET_NR_dipc
 { TARGET_NR_dipc, "dipc" , NULL, NULL, NULL },
 #endif
+#ifdef TARGET_NR_dma_memcpy
+{ TARGET_NR_dma_memcpy, "dma_memcpy" , NULL, NULL, NULL },
+#endif
 #ifdef TARGET_NR_dup
 { TARGET_NR_dup, "dup" , NULL, NULL, NULL },
 #endif
@@ -1412,6 +1415,12 @@
 #endif
 #ifdef TARGET_NR_splice
 { TARGET_NR_splice, "splice" , NULL, NULL, NULL },
+#endif
+#ifdef TARGET_NR_sram_alloc
+{ TARGET_NR_sram_alloc, "sram_alloc" , NULL, NULL, NULL },
+#endif
+#ifdef TARGET_NR_sram_free
+{ TARGET_NR_sram_free, "sram_free" , NULL, NULL, NULL },
 #endif
 #ifdef TARGET_NR_ssetmask
 { TARGET_NR_ssetmask, "ssetmask" , NULL, NULL, NULL },
