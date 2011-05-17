@@ -11,6 +11,7 @@ trace-dtrace.dtrace
 *-darwin-user
 *-linux-user
 *-bsd-user
+libcacard/vscclient
 libdis*
 libhw32
 libhw64
