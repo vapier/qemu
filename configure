@@ -470,7 +470,7 @@ strip="${STRIP-${cross_prefix}strip}"
 windres="${WINDRES-${cross_prefix}windres}"
 pkg_config_exe="${PKG_CONFIG-${cross_prefix}pkg-config}"
 query_pkg_config() {
-    "${pkg_config_exe}" ${QEMU_PKG_CONFIG_FLAGS} "$@"
+    ${pkg_config_exe} ${QEMU_PKG_CONFIG_FLAGS} "$@"
 }
 pkg_config=query_pkg_config
 sdl_config="${SDL_CONFIG-${cross_prefix}sdl-config}"
@@ -1927,7 +1927,7 @@ fi
 ##########################################
 # pkg-config probe
 
-if ! has "$pkg_config_exe"; then
+if ! has $pkg_config_exe; then
   error_exit "pkg-config binary '$pkg_config_exe' not found"
 fi
 
