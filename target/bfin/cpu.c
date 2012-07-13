@@ -111,6 +111,10 @@ static void bfin_cpu_class_init(ObjectClass *oc, void *data)
 #ifdef CONFIG_TCG
     cc->tcg_initialize = bfin_translate_init;
 #endif
+#ifndef CONFIG_USER_ONLY
+    cc->get_phys_page_debug = bfin_cpu_get_phys_page_debug;
+    dc->vmsd = &vmstate_bfin_cpu;
+#endif
 }
 
 static const TypeInfo bfin_cpu_type_info = {
@@ -134,7 +138,37 @@ typedef struct BlackfinCPUInfo {
 } BlackfinCPUInfo;
 
 static const BlackfinCPUInfo bfin_cpus[] = {
+    { .name = "bf504", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf506", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf512", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf514", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf516", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf518", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf522", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf523", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf524", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf525", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf526", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf527", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf531", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf532", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf533", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf534", .initfn = bf5xx_cpu_initfn, },
+  /*{ .name = "bf535", .initfn = bf5xx_cpu_initfn, },*/
+    { .name = "bf536", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf537", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf538", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf539", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf542", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf544", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf547", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf548", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf549", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf561", .initfn = bf5xx_cpu_initfn, },
+    { .name = "bf592", .initfn = bf5xx_cpu_initfn, },
+#ifdef CONFIG_USER_ONLY
     { .name = "any",   .initfn = bf5xx_cpu_initfn, },
+#endif
 };
 
 static void bfin_cpu_register(const BlackfinCPUInfo *info)
