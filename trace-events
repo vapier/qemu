@@ -86,6 +86,10 @@ monitor_protocol_event_emit(uint32_t event, void *data) "event=%d data=%p"
 monitor_protocol_event_queue(uint32_t event, void *qdict, uint64_t rate) "event=%d data=%p rate=%" PRId64
 monitor_protocol_event_throttle(uint32_t event, uint64_t rate) "event=%d rate=%" PRId64
 
+# hw/bfin_*.c
+bfin_reg_memory_read(uint32_t addr, const char *name, unsigned size) "read 0x%08x (%s) length %u"
+bfin_reg_memory_write(uint32_t addr, const char *name, unsigned size, uint32_t value) "write 0x%08x (%s) length %u with 0x%x"
+
 # dma-helpers.c
 dma_blk_io(void *dbs, void *bs, int64_t offset, bool to_dev) "dbs=%p bs=%p offset=%" PRId64 " to_dev=%d"
 dma_aio_cancel(void *dbs) "dbs=%p"
