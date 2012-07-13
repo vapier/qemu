@@ -12,6 +12,31 @@
 #include "cpu.h"
 #include "exec/helper-proto.h"
 
+#if !defined(CONFIG_USER_ONLY)
+
+/* Try to fill the TLB and return an exception if error. If retaddr is
+   NULL, it means that the function was called in C code (i.e. not
+   from generated code or from helper.c) */
+/* XXX: fix it to restore all registers */
+void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+              int mmu_idx, uintptr_t retaddr)
+{
+    int ret;
+
+    ret = cpu_bfin_handle_mmu_fault(cs, addr, access_type, mmu_idx);
+    if (unlikely(ret)) {
+        if (retaddr) {
+            /* now we have a real cpu fault */
+            if (cpu_restore_state(cs, retaddr)) {
+                /* XXX: something!? */
+            }
+        }
+        cpu_loop_exit(cs);
+    }
+}
+
+#endif
+
 void HELPER(raise_exception)(CPUArchState *env, uint32_t excp, uint32_t pc)
 {
     BlackfinCPU *cpu = bfin_env_get_cpu(env);
@@ -32,6 +57,12 @@ void HELPER(memalign)(CPUArchState *env, uint32_t excp, uint32_t pc,
     }
 
     HELPER(raise_exception)(env, excp, pc);
+}
+
+void HELPER(require_supervisor)(CPUArchState *env, uint32_t pc)
+{
+    if (!cec_is_supervisor_mode(env))
+        HELPER(raise_exception)(env, EXCP_ILL_SUPV, pc);
 }
 
 void HELPER(dbga_l)(CPUArchState *env, uint32_t pc, uint32_t actual,
@@ -82,7 +113,14 @@ void HELPER(astat_store)(CPUArchState *env, uint32_t astat)
    So this code really should be returning CYCLES + clock offset.  */
 uint32_t HELPER(cycles_read)(CPUArchState *env)
 {
-    uint64_t cycles = cpu_get_host_ticks();
+    uint64_t cycles;
+
+#ifndef CONFIG_USER_ONLY
+    cycles = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+#else
+    cycles = cpu_get_host_ticks();
+#endif
+
     env->cycles[1] = cycles >> 32;
     env->cycles[0] = cycles;
     return env->cycles[0];
