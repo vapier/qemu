@@ -125,6 +125,7 @@ Blackfin
 M: Mike Frysinger <vapier@gentoo.org>
 S: Maintained
 F: target/bfin/
+F: hw/bfin/
 
 CRIS
 M: Edgar E. Iglesias <edgar.iglesias@gmail.com>
