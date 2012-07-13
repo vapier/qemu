@@ -55,6 +55,14 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
 {
     int prot;
 
+    /* XXX: walk the CPLB tables here */
+#if 0
+    static const char * const rw_map[] = { "read", "write", "exec", };
+
+    printf("%s: %5s @ " TARGET_FMT_lx " (mmu_idx=%i)\n",
+        __func__, rw_map[access_type], address, mmu_idx);
+#endif
+
     address &= TARGET_PAGE_MASK;
     prot = PAGE_BITS;
     tlb_set_page(cs, address, address, prot, mmu_idx, TARGET_PAGE_SIZE);
