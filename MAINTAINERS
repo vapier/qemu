@@ -167,6 +167,7 @@ Blackfin
 M: Mike Frysinger <vapier@gentoo.org>
 S: Maintained
 F: target/bfin/
+F: hw/bfin/
 
 CRIS TCG CPUs
 M: Edgar E. Iglesias <edgar.iglesias@gmail.com>
