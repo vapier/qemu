@@ -1,0 +1,12 @@
+obj-y += bfin_boards.o
+
+# Core models.
+obj-y += bfin_evt.o
+obj-y += bfin_mmu.o
+obj-y += bfin_trace.o
+
+# Peripheral models.
+obj-y += bfin_dma.o
+obj-y += bfin_pll.o
+obj-y += bfin_sic.o
+obj-y += bfin_uart.o
