@@ -73,3 +73,45 @@ int cpu_handle_mmu_fault(CPUArchState *env, target_ulong address, int rw,
 }
 
 #endif
+
+/* Sort alphabetically by type name, except for "any". */
+static gint cpu_list_compare(gconstpointer a, gconstpointer b)
+{
+    ObjectClass *class_a = (ObjectClass *)a;
+    ObjectClass *class_b = (ObjectClass *)b;
+    const char *name_a, *name_b;
+
+    name_a = object_class_get_name(class_a);
+    name_b = object_class_get_name(class_b);
+    if (strcmp(name_a, "any") == 0) {
+        return 1;
+    } else if (strcmp(name_b, "any") == 0) {
+        return -1;
+    } else {
+        return strcmp(name_a, name_b);
+    }
+}
+
+static void cpu_list_entry(gpointer data, gpointer user_data)
+{
+    ObjectClass *oc = data;
+    CPUListState *s = user_data;
+
+    (*s->cpu_fprintf)(s->file, "  %s\n",
+                      object_class_get_name(oc));
+}
+
+void cpu_bfin_list(FILE *f, fprintf_function cpu_fprintf)
+{
+    CPUListState s = {
+        .file = f,
+        .cpu_fprintf = cpu_fprintf,
+    };
+    GSList *list;
+
+    list = object_class_get_list(TYPE_BLACKFIN_CPU, false);
+    list = g_slist_sort(list, cpu_list_compare);
+    (*cpu_fprintf)(f, "Available CPUs:\n");
+    g_slist_foreach(list, cpu_list_entry, &s);
+    g_slist_free(list);
+}
