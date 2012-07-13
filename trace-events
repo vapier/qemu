@@ -51,6 +51,10 @@ monitor_suspend(void *ptr, int cnt) "mon %p: %d"
 monitor_qmp_cmd_in_band(const char *id) "%s"
 monitor_qmp_cmd_out_of_band(const char *id) "%s"
 
+# hw/bfin_*.c
+bfin_reg_memory_read(uint32_t addr, const char *name, unsigned size) "read 0x%08x (%s) length %u"
+bfin_reg_memory_write(uint32_t addr, const char *name, unsigned size, uint32_t value) "write 0x%08x (%s) length %u with 0x%x"
+
 # dma-helpers.c
 dma_blk_io(void *dbs, void *bs, int64_t offset, bool to_dev) "dbs=%p bs=%p offset=%" PRId64 " to_dev=%d"
 dma_aio_cancel(void *dbs) "dbs=%p"
