@@ -162,6 +162,10 @@ static inline BlackfinCPU *bfin_env_get_cpu(CPUArchState *env)
 
 #define ENV_OFFSET offsetof(BlackfinCPU, env)
 
+#ifndef CONFIG_USER_ONLY
+extern const struct VMStateDescription vmstate_bfin_cpu;
+#endif
+
 static inline BlackfinCPU *cpu_bfin_init(const char *cpu_model)
 {
     return BFIN_CPU(cpu_generic_init(TYPE_BLACKFIN_CPU, cpu_model));
@@ -169,12 +173,14 @@ static inline BlackfinCPU *cpu_bfin_init(const char *cpu_model)
 
 #define cpu_init(cpu_model) CPU(cpu_bfin_init(cpu_model))
 
+#define cpu_list cpu_bfin_list
 #define cpu_signal_handler cpu_bfin_signal_handler
 
 void bfin_cpu_do_interrupt(CPUState *cpu);
 
 void bfin_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                          int flags);
+hwaddr bfin_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
 int bfin_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int bfin_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 
@@ -225,14 +231,23 @@ enum astat_ops {
     ASTAT_OP_VECTOR_SUB_ADD,    /* -|+ */
 };
 
+void cpu_list(FILE *f, fprintf_function cpu_fprintf);
 int cpu_bfin_signal_handler(int host_signum, void *pinfo, void *puc);
 void bfin_translate_init(void);
 
 extern const char * const greg_names[];
 extern const char *get_allreg_name(int grp, int reg);
 
-#define MMU_KERNEL_IDX 0
-#define MMU_USER_IDX   1
+#include "dv-bfin_cec.h"
+
+/* */
+#define MMU_MODE0_SUFFIX _kernel
+#define MMU_MODE1_SUFFIX _user
+#define MMU_USER_IDX 1
+static inline int cpu_mmu_index(CPUArchState *env, bool ifetch)
+{
+    return !cec_is_supervisor_mode(env);
+}
 
 int cpu_bfin_handle_mmu_fault(CPUState *cs, target_ulong address,
                               MMUAccessType access_type, int mmu_idx);
