@@ -178,6 +178,7 @@ static inline CPUBfinState *cpu_init(const char *cpu_model)
 }
 
 #define cpu_exec cpu_bfin_exec
+#define cpu_list cpu_bfin_list
 #define cpu_gen_code cpu_bfin_gen_code
 #define cpu_signal_handler cpu_bfin_signal_handler
 
@@ -185,6 +186,7 @@ void bfin_cpu_do_interrupt(CPUState *cpu);
 
 void bfin_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                          int flags);
+hwaddr bfin_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
 int bfin_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int bfin_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 
@@ -235,6 +237,7 @@ enum astat_ops {
     ASTAT_OP_VECTOR_SUB_ADD,    /* -|+ */
 };
 
+void cpu_list(FILE *f, fprintf_function cpu_fprintf);
 int cpu_exec(CPUArchState *s);
 int cpu_bfin_signal_handler(int host_signum, void *pinfo, void *puc);
 void bfin_translate_init(void);
@@ -242,8 +245,18 @@ void bfin_translate_init(void);
 extern const char * const greg_names[];
 extern const char *get_allreg_name(int grp, int reg);
 
-#define MMU_KERNEL_IDX 0
-#define MMU_USER_IDX   1
+#define CPU_SAVE_VERSION 1
+
+#include "dv-bfin_cec.h"
+
+/* */
+#define MMU_MODE0_SUFFIX _kernel
+#define MMU_MODE1_SUFFIX _user
+#define MMU_USER_IDX 1
+static inline int cpu_mmu_index (CPUArchState *env)
+{
+    return !cec_is_supervisor_mode (env);
+}
 
 int cpu_bfin_handle_mmu_fault(CPUState *cs, target_ulong address, int rw,
                               int mmu_idx);
