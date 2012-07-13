@@ -195,8 +195,18 @@ int cpu_bfin_signal_handler(int host_signum, void *pinfo, void *puc);
 extern const char * const greg_names[];
 extern const char *get_allreg_name(int grp, int reg);
 
-#define MMU_KERNEL_IDX 0
-#define MMU_USER_IDX   1
+#define CPU_SAVE_VERSION 1
+
+#include "dv-bfin_cec.h"
+
+/* */
+#define MMU_MODE0_SUFFIX _kernel
+#define MMU_MODE1_SUFFIX _user
+#define MMU_USER_IDX 1
+static inline int cpu_mmu_index (CPUArchState *env)
+{
+    return !cec_is_supervisor_mode (env);
+}
 
 int cpu_bfin_handle_mmu_fault(CPUState *cs, target_ulong address, int rw,
                               int mmu_idx);
