@@ -10,6 +10,42 @@
 #include "cpu.h"
 #include "helper.h"
 
+#if !defined(CONFIG_USER_ONLY)
+
+#include "exec/softmmu_exec.h"
+#define MMUSUFFIX _mmu
+#define SHIFT 0
+#include "exec/softmmu_template.h"
+#define SHIFT 1
+#include "exec/softmmu_template.h"
+#define SHIFT 2
+#include "exec/softmmu_template.h"
+#define SHIFT 3
+#include "exec/softmmu_template.h"
+
+/* Try to fill the TLB and return an exception if error. If retaddr is
+   NULL, it means that the function was called in C code (i.e. not
+   from generated code or from helper.c) */
+/* XXX: fix it to restore all registers */
+void tlb_fill(CPUArchState *env, target_ulong addr, int is_write, int mmu_idx,
+              uintptr_t retaddr)
+{
+    int ret;
+
+    ret = cpu_bfin_handle_mmu_fault(env, addr, is_write, mmu_idx);
+    if (unlikely(ret)) {
+        if (retaddr) {
+            /* now we have a real cpu fault */
+            if (cpu_restore_state(env, retaddr)) {
+                /* XXX: something!? */
+            }
+        }
+        cpu_loop_exit(env);
+    }
+}
+
+#endif
+
 void HELPER(raise_exception)(CPUArchState *env, uint32_t excp, uint32_t pc)
 {
     env->exception_index = excp;
@@ -25,6 +61,12 @@ void HELPER(memalign)(CPUArchState *env, uint32_t excp, uint32_t pc,
         return;
 
     HELPER(raise_exception)(env, excp, pc);
+}
+
+void HELPER(require_supervisor)(CPUArchState *env, uint32_t pc)
+{
+    if (!cec_is_supervisor_mode(env))
+        HELPER(raise_exception)(env, EXCP_ILL_SUPV, pc);
 }
 
 void HELPER(dbga_l)(CPUArchState *env, uint32_t pc, uint32_t actual,
