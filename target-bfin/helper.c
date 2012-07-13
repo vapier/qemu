@@ -63,7 +63,12 @@ hwaddr bfin_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 int cpu_handle_mmu_fault(CPUArchState *env, target_ulong address, int rw,
                          int mmu_idx)
 {
+    static const char * const rw_map[] = { "read", "write", "exec", };
     int prot;
+
+    /* XXX: walk the CPLB tables here */
+    printf("%s: %5s @ " TARGET_FMT_lx " (mmu_idx=%i)\n",
+        __func__, rw_map[rw], address, mmu_idx);
 
     address &= TARGET_PAGE_MASK;
     prot = PAGE_BITS;
