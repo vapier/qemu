@@ -53,6 +53,7 @@ struct DisasContext;
 
 #define CPUArchState struct CPUBfinState
 #define cpu_init cpu_bfin_init
+#define cpu_list cpu_bfin_list
 #define cpu_exec cpu_bfin_exec
 #define cpu_gen_code cpu_bfin_gen_code
 #define cpu_signal_handler cpu_bfin_signal_handler
@@ -179,6 +180,7 @@ typedef struct DisasContext {
 
 void do_interrupt(CPUArchState *env);
 CPUArchState *cpu_init(const char *cpu_model);
+void cpu_list(FILE *f, fprintf_function cpu_fprintf);
 int cpu_exec(CPUArchState *s);
 int cpu_bfin_signal_handler(int host_signum, void *pinfo, void *puc);
 
