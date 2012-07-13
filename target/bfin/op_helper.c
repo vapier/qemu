@@ -11,6 +11,7 @@
 #include "qemu/timer.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
+#include "exec/exec-all.h"
 
 void HELPER(raise_exception)(CPUArchState *env, uint32_t excp, uint32_t pc)
 {
@@ -32,6 +33,12 @@ void HELPER(memalign)(CPUArchState *env, uint32_t excp, uint32_t pc,
     }
 
     HELPER(raise_exception)(env, excp, pc);
+}
+
+void HELPER(require_supervisor)(CPUArchState *env, uint32_t pc)
+{
+    if (!cec_is_supervisor_mode(env))
+        HELPER(raise_exception)(env, EXCP_ILL_SUPV, pc);
 }
 
 void HELPER(dbga_l)(CPUArchState *env, uint32_t pc, uint32_t actual,
@@ -82,7 +89,14 @@ void HELPER(astat_store)(CPUArchState *env, uint32_t astat)
    So this code really should be returning CYCLES + clock offset.  */
 uint32_t HELPER(cycles_read)(CPUArchState *env)
 {
-    uint64_t cycles = cpu_get_host_ticks();
+    uint64_t cycles;
+
+#ifndef CONFIG_USER_ONLY
+    cycles = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+#else
+    cycles = cpu_get_host_ticks();
+#endif
+
     env->cycles[1] = cycles >> 32;
     env->cycles[0] = cycles;
     return env->cycles[0];
