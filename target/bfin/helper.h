@@ -9,6 +9,7 @@
 
 DEF_HELPER_FLAGS_3(raise_exception, TCG_CALL_NO_WG, void, env, i32, i32)
 DEF_HELPER_FLAGS_5(memalign, TCG_CALL_NO_WG, void, env, i32, i32, i32, i32)
+DEF_HELPER_FLAGS_2(require_supervisor, TCG_CALL_NO_WG, void, env, i32)
 
 DEF_HELPER_FLAGS_4(dbga_l, TCG_CALL_NO_WG, void, env, i32, i32, i32)
 DEF_HELPER_FLAGS_4(dbga_h, TCG_CALL_NO_WG, void, env, i32, i32, i32)
