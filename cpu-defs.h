@@ -28,6 +28,7 @@
 #include <inttypes.h>
 #include <signal.h>
 #include "osdep.h"
+#include "qemu-common.h"
 #include "qemu-queue.h"
 #include "targphys.h"
 
