@@ -2,6 +2,7 @@
 
 DEF_HELPER_2(raise_exception, void, i32, i32)
 DEF_HELPER_4(memalign, void, i32, i32, i32, i32)
+DEF_HELPER_1(require_supervisor, void, i32)
 
 DEF_HELPER_3(dbga_l, void, i32, i32, i32)
 DEF_HELPER_3(dbga_h, void, i32, i32, i32)

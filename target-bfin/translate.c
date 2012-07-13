@@ -248,7 +248,8 @@ static void cec_require_supervisor(DisasContext *dc)
 #ifdef CONFIG_LINUX_USER
     cec_exception(dc, EXCP_ILL_SUPV);
 #else
-# error todo
+    TCGv pc = tcg_const_tl(dc->pc);
+    gen_helper_require_supervisor(pc);
 #endif
 }
 

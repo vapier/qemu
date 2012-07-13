@@ -11,6 +11,49 @@
 #include "dyngen-exec.h"
 #include "helper.h"
 
+#if !defined(CONFIG_USER_ONLY)
+#define MMUSUFFIX _mmu
+#define SHIFT 0
+#include "softmmu_template.h"
+#define SHIFT 1
+#include "softmmu_template.h"
+#define SHIFT 2
+#include "softmmu_template.h"
+#define SHIFT 3
+#include "softmmu_template.h"
+
+/* Try to fill the TLB and return an exception if error. If retaddr is
+   NULL, it means that the function was called in C code (i.e. not
+   from generated code or from helper.c) */
+/* XXX: fix it to restore all registers */
+void tlb_fill(CPUArchState *env1, target_ulong addr, int is_write, int mmu_idx,
+              uintptr_t retaddr)
+{
+    TranslationBlock *tb;
+    CPUArchState *saved_env;
+    int ret;
+
+    saved_env = env;
+    env = env1;
+
+    ret = cpu_handle_mmu_fault(env, addr, is_write, mmu_idx);
+    if (unlikely(ret)) {
+        if (retaddr) {
+            /* now we have a real cpu fault */
+            tb = tb_find_pc(retaddr);
+            if (tb) {
+                /* the PC is inside the translated code. It means that we have
+                   a virtual CPU fault */
+                cpu_restore_state(tb, env, retaddr);
+            }
+        }
+        cpu_loop_exit(env);
+    }
+    env = saved_env;
+}
+
+#endif
+
 void helper_raise_exception(uint32_t excp, uint32_t pc)
 {
     env->exception_index = excp;
@@ -25,6 +68,12 @@ void helper_memalign(uint32_t excp, uint32_t pc, uint32_t addr, uint32_t len)
         return;
 
     helper_raise_exception(excp, pc);
+}
+
+void helper_require_supervisor(uint32_t pc)
+{
+    if (!cec_is_supervisor_mode(env))
+        helper_raise_exception(EXCP_ILL_SUPV, pc);
 }
 
 void helper_dbga_l(uint32_t pc, uint32_t actual, uint32_t expected)
