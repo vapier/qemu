@@ -18,6 +18,8 @@ struct DisasContext;
 
 #define TARGET_HAS_ICE 1
 
+#define ELF_MACHINE	EM_BLACKFIN
+
 #define EXCP_SYSCALL        0
 #define EXCP_SOFT_BP        1
 #define EXCP_STACK_OVERFLOW 3
