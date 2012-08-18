@@ -998,7 +998,7 @@ static uint64_t invalid_read(void *opaque, target_phys_addr_t addr,
     MemoryRegion *mr = opaque;
 
     if (!mr->warning_printed) {
-        fprintf(stderr, "Invalid read from memory region %s\n", mr->name);
+        fprintf(stderr, "Invalid read from memory region %s at offset %#x\n", mr->name, addr);
         mr->warning_printed = true;
     }
     return -1U;
@@ -1010,7 +1010,7 @@ static void invalid_write(void *opaque, target_phys_addr_t addr, uint64_t data,
     MemoryRegion *mr = opaque;
 
     if (!mr->warning_printed) {
-        fprintf(stderr, "Invalid write to memory region %s\n", mr->name);
+        fprintf(stderr, "Invalid write to memory region %s at offset %#x\n", mr->name, addr);
         mr->warning_printed = true;
     }
 }

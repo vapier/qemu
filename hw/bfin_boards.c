@@ -11,6 +11,7 @@
 #include "boards.h"
 #include "loader.h"
 #include "elf.h"
+#include "sysbus.h"
 #include "exec-memory.h"
 
 struct bfin_memory_layout {
@@ -32,14 +33,48 @@ static const struct bfin_memory_layout bf537_mem[] =
     LAYOUT(0, 0, "SDRAM"),
 };
 
-static void bfin_memory_init(const char *name, target_phys_addr_t base, ram_addr_t size)
+static void bfin_memory_init(const struct bfin_memory_layout mem_layout[], ram_addr_t ram_size)
 {
-    MemoryRegion *address_space_mem =  get_system_memory();
-    MemoryRegion *mem = g_new(MemoryRegion, 1);
+    MemoryRegion *address_space_mem = get_system_memory();
+    MemoryRegion *mem;
+    size_t i;
 
-    memory_region_init_ram(mem, name, size);
-    vmstate_register_ram_global(mem);
-    memory_region_add_subregion(address_space_mem, base, mem);
+    for (i = 0; mem_layout[i].len; ++i) {
+        mem = g_new(MemoryRegion, 1);
+        memory_region_init_ram(mem, mem_layout[i].name, mem_layout[i].len);
+        vmstate_register_ram_global(mem);
+        memory_region_add_subregion(address_space_mem, mem_layout[i].addr, mem);
+    }
+
+    if (ram_size) {
+        mem = g_new(MemoryRegion, 1);
+        memory_region_init_ram(mem, mem_layout[i].name, ram_size);
+        vmstate_register_ram_global(mem);
+        memory_region_add_subregion(address_space_mem, mem_layout[i].addr, mem);
+    }
+
+    /* Address space reserved for on-chip (system) devices */
+    mem = g_new(MemoryRegion, 1);
+    memory_region_init_reservation(mem, "System MMRs", 0x200000);
+    memory_region_add_subregion(address_space_mem, 0xFFC00000, mem);
+
+    /* Address space reserved for on-chip (core) devices */
+    mem = g_new(MemoryRegion, 1);
+    memory_region_init_reservation(mem, "Core MMRs", 0x200000);
+    memory_region_add_subregion(address_space_mem, 0xFFE00000, mem);
+}
+
+static void bfin_device_init(void)
+{
+    sysbus_create_simple("bfin_mmu", 0xFFE00000, NULL);
+    sysbus_create_simple("bfin_evt", 0xFFE02000, NULL);
+    sysbus_create_simple("bfin_trace", 0xFFE06000, NULL);
+    sysbus_create_simple("bfin_pll", 0xFFC00000, NULL);
+    sysbus_create_simple("bfin_sic", 0xFFC00100, NULL);
+    qemu_chr_new("bfin_uart0", "null", NULL);
+    sysbus_create_simple("bfin_uart", 0xFFC00400, NULL);
+    qemu_chr_new("bfin_uart1", "null", NULL);
+    sysbus_create_simple("bfin_uart", 0xFFC02000, NULL);
 }
 
 static void bfin_common_init(const struct bfin_memory_layout mem_layout[],
@@ -47,13 +82,10 @@ static void bfin_common_init(const struct bfin_memory_layout mem_layout[],
                              const char *kernel_filename, const char *kernel_cmdline)
 {
     CPUArchState *env;
-    size_t i;
 
-    for (i = 0; mem_layout[i].len; ++i) {
-        bfin_memory_init(mem_layout[i].name, mem_layout[i].addr, mem_layout[i].len);
-    }
     ram_size *= 1024 * 1024;
-    bfin_memory_init(mem_layout[i].name, mem_layout[i].addr, ram_size);
+    bfin_memory_init(mem_layout, ram_size);
+    bfin_device_init();
 
     env = cpu_init(cpu_model);
 
@@ -72,10 +104,11 @@ static void bfin_common_init(const struct bfin_memory_layout mem_layout[],
             exit(1);
         }
         env->pc = entry;
-    }
 
-    if (kernel_cmdline)
-        /* XXX: todo */{}
+        if (kernel_cmdline) {
+            pstrcpy_targphys("cmdline", kernel_size, -1, kernel_cmdline);
+        }
+    }
 }
 
 static void bf537_stamp_init(ram_addr_t ram_size_not_used,
@@ -87,16 +120,22 @@ static void bf537_stamp_init(ram_addr_t ram_size_not_used,
     bfin_common_init(bf537_mem, 64, "bf537", kernel_filename, kernel_cmdline);
 }
 
-static QEMUMachine bf537_stamp_machine = {
-    .name = "bf537-stamp",
-    .desc = "Analog Devices Blackfin 537 STAMP",
-    .init = bf537_stamp_init,
-    .is_default = 1
+static QEMUMachine bfin_machines[] = {
+    {
+        .name = "bf537-stamp",
+        .desc = "Analog Devices Blackfin 537 STAMP",
+        .init = bf537_stamp_init,
+        .is_default = 1,
+    },
 };
 
 static void bfin_boards_machine_init(void)
 {
-    qemu_register_machine(&bf537_stamp_machine);
+    size_t i;
+
+    for (i = 0; i < ARRAY_SIZE(bfin_machines); ++i) {
+        qemu_register_machine(&bfin_machines[i]);
+    }
 }
 
 machine_init(bfin_boards_machine_init);
