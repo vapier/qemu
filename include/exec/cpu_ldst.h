@@ -38,7 +38,7 @@
 #define h2g_valid(x) ({ \
     unsigned long __guest = (unsigned long)(x) - GUEST_BASE; \
     (__guest < (1ul << TARGET_VIRT_ADDR_SPACE_BITS)) && \
-    (!RESERVED_VA || (__guest < RESERVED_VA)); \
+    _h2g_reserved_va(__guest); \
 })
 #endif
 

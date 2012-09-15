@@ -193,9 +193,12 @@ extern int have_guest_base;
 extern unsigned long reserved_va;
 #define GUEST_BASE guest_base
 #define RESERVED_VA reserved_va
+/* GCC likes to warn about comparing unsigned longs to < 0, so cpp it away.  */
+#define _h2g_reserved_va(x) ((x) < RESERVED_VA)
 #else
 #define GUEST_BASE 0ul
 #define RESERVED_VA 0ul
+#define _h2g_reserved_va(x) 1
 #endif
 
 #endif
