@@ -98,7 +98,7 @@ const QEMULogItem qemu_log_items[] = {
     { CPU_LOG_TB_OP, "op",
       "show micro ops for each compiled TB" },
     { CPU_LOG_TB_OP_OPT, "op_opt",
-      "show micro ops (x86 only: before eflags optimization) and\n"
+      "show micro ops (x86 only: before eflags optimization) and "
       "after liveness analysis" },
     { CPU_LOG_INT, "int",
       "show interrupts/exceptions in short format" },
@@ -115,7 +115,7 @@ const QEMULogItem qemu_log_items[] = {
     { LOG_UNIMP, "unimp",
       "log unimplemented functionality" },
     { LOG_GUEST_ERROR, "guest_errors",
-      "log when the guest OS does something invalid (eg accessing a\n"
+      "log when the guest OS does something invalid (eg accessing a "
       "non-existent register)" },
     { 0, NULL, NULL },
 };
@@ -167,8 +167,26 @@ int qemu_str_to_log_mask(const char *str)
 void qemu_print_log_usage(FILE *f)
 {
     const QEMULogItem *item;
+    int name_len, help_len, wrap_len = 80;
+    bool wrapped;
+    char help[wrap_len + 1];
+
     fprintf(f, "Log items (comma separated):\n");
+
+    name_len = 0;
     for (item = qemu_log_items; item->mask != 0; item++) {
-        fprintf(f, "%-10s %s\n", item->name, item->help);
+        name_len = MAX(strlen(item->name), name_len);
+    }
+    help_len = wrap_len - name_len - 1;
+
+    for (item = qemu_log_items; item->mask != 0; item++) {
+        wrapped = snprintf(help, help_len, "%s", item->help) >= help_len;
+        if (wrapped) {
+            strcat(help, "-");
+        }
+        fprintf(f, "%-*s %s\n", name_len, item->name, help);
+        if (wrapped) {
+            fprintf(f, "%-*s %s\n", name_len, "", item->help + help_len - 1);
+        }
     }
 }
