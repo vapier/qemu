@@ -32,7 +32,10 @@ typedef struct BlackfinCPUClass {
     CPUClass parent_class;
     /*< public >*/
 
+    DeviceRealize parent_realize;
     void (*parent_reset)(CPUState *cpu);
+
+    const char *name;
 } BlackfinCPUClass;
 
 /**
