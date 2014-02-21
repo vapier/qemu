@@ -18,7 +18,7 @@
     VMSTATE_UINT32(member, CPUArchState)
 static const VMStateDescription vmstate_cpu = {
     .name = "cpu",
-    .version_id = CPU_SAVE_VERSION,
+    .version_id = 1,
     .minimum_version_id = 1,
     .minimum_version_id_old = 1,
     .fields = (VMStateField[]) {

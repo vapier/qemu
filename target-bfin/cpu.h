@@ -197,8 +197,6 @@ int cpu_bfin_signal_handler(int host_signum, void *pinfo, void *puc);
 extern const char * const greg_names[];
 extern const char *get_allreg_name(int grp, int reg);
 
-#define CPU_SAVE_VERSION 1
-
 #include "dv-bfin_cec.h"
 
 /* */
