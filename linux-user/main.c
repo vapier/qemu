@@ -4431,7 +4431,7 @@ int main(int argc, char **argv, char **envp)
        qemu_host_page_size */
     cpu = cpu_init(cpu_model);
     if (!cpu) {
-        fprintf(stderr, "Unable to find CPU definition\n");
+        fprintf(stderr, "Unable to find CPU definition: %s\n", cpu_model);
         exit(EXIT_FAILURE);
     }
     env = cpu->env_ptr;
