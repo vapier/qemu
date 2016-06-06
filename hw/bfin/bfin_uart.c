@@ -285,6 +285,7 @@ static void bfin_uart_class_init(ObjectClass *klass, void *data)
     dc->vmsd = &vmstate_bfin_uart;
     dc->props = bfin_uart_properties;
     dc->realize = bfin_uart_realize;
+    set_bit(DEVICE_CATEGORY_INPUT, dc->categories);
 }
 
 static TypeInfo bfin_uart_info = {
