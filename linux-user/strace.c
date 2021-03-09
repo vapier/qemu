@@ -1360,6 +1360,7 @@ UNUSED static struct flags termios_lflags[] = {
     FLAG_END,
 };
 
+#ifdef TARGET_NR_mlockall
 UNUSED static struct flags mlockall_flags[] = {
     FLAG_TARGET(MCL_CURRENT),
     FLAG_TARGET(MCL_FUTURE),
@@ -1368,6 +1369,7 @@ UNUSED static struct flags mlockall_flags[] = {
 #endif
     FLAG_END,
 };
+#endif
 
 /* IDs of the various system clocks */
 #define TARGET_CLOCK_REALTIME              0
